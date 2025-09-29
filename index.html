@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>عدّ الأشخاص - مع تمييز ثابت</title>
+  <title>عدّ الأشخاص — نهائي (قوالب مثبتة)</title>
   <style>
-    :root { --sidebar-w: 180px; --reticle-color: rgba(200,200,200,0.95); }
+    :root { --sidebar-w: 180px; }
     html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Arial;}
     .container{display:flex;height:100vh;align-items:stretch;}
     .camera-area{flex:1;position:relative;background:#000;overflow:hidden;}
@@ -36,8 +36,8 @@
     <div class="camera-area">
       <video id="v" autoplay playsinline></video>
       <canvas id="overlay"></canvas>
-      <div class="hint">ضع الكاميرا ومرّر الوجه داخل المربع أو فعّل "احتساب في أي مكان"</div>
-      <div class="debug" id="debugInfo">FPS: -- | Faces: --</div>
+      <div class="hint">ضع الكاميرا على وجه الشخص → سيتم احتسابه لمرة واحدة فقط. اضغط "إعادة" لمسح الذاكرة.</div>
+      <div class="debug" id="debugInfo">FPS: -- | Faces: -- | Templates: 0</div>
     </div>
 
     <div class="sidebar">
@@ -54,7 +54,7 @@
           <input type="checkbox" id="autoAssign" />
         </div>
         <div style="margin-top:6px;">
-          <label class="small">حساسية (أسرع ← أقل خطأ):</label>
+          <label class="small">حساسية (أسرع ← أدق):</label>
           <input id="sensitivity" type="range" min="1" max="4" value="2" />
         </div>
       </div>
@@ -66,17 +66,17 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
 
   <script>
-  // ========== إعدادات قابلة للتعديل ==========
-  let PROCESS_EVERY_MS = 50;
-  let RETICLE_SIZE_RATIO = 0.34;
-  let ASSIGN_CONSECUTIVE = 2;
-  const MAX_TRACK_DISTANCE = 120;
+  // ======== إعدادات قابلة للتعديل ========
+  let PROCESS_EVERY_MS = 50;        // زمن بين كل معالجة
+  let RETICLE_SIZE_RATIO = 0.34;    // حجم مربع التركيز
+  let ASSIGN_CONSECUTIVE = 2;       // عدد الإطارات التي يجب أن يظهر فيها الوجه قبل الاحتساب
+  const MAX_TRACK_DISTANCE = 120;   // بكسل لربط المتتبّع
+  // القالب (thumbnail) settings
+  const TEMPLATE_SIZE = 64;         // مقاس صورة القالب (64x64)
+  const TEMPLATE_SIM_THRESHOLD = 0.80; // عتبة التشابه (cosine) 0..1
+  const MAX_TEMPLATES_PER_LABEL = 3; // نخزن حتى 3 عينات لكل شخص لزيادة المتانة
 
-  // thumbnail settings (لتمييز الأشخاص):  size للـtemplate
-  const TEMPLATE_SIZE = 64;           // مقاس القالب (64x64)
-  const TEMPLATE_SIM_THRESHOLD = 0.80; // عتبة تشابه كوزيني (0..1) -> 0.8 جيد كبداية
-
-  // ===== العناصر =====
+  // ===== DOM =====
   const video = document.getElementById('v');
   const canvas = document.getElementById('overlay');
   const ctx = canvas.getContext('2d');
@@ -95,26 +95,25 @@
   let fps = 0;
   let facesThisFrame = 0;
 
-  // offscreen canvas لتكوين القوالب بسرعة
+  // offscreen canvas لصنع القوالب بسرعة
   const offcanvas = document.createElement('canvas');
   offcanvas.width = TEMPLATE_SIZE; offcanvas.height = TEMPLATE_SIZE;
   const offctx = offcanvas.getContext('2d');
 
-  // ===== Tracker مع دعم assignedLabel =====
+  // ===== Tracker معدّل لقبول assignedLabel عند التسجيل =====
   class Tracker {
     constructor(){
       this.nextId = 1;
       this.objects = new Map(); // id -> {cx,cy,bbox,disappeared,assignedLabel,seenCount}
     }
-    register(cx,cy,bbox){
+    // register يمكنه أخذ assignedLabel (null أو رقم)
+    register(cx,cy,bbox, assignedLabel = null){
       const id = this.nextId++;
-      this.objects.set(id, {cx,cy,bbox,disappeared:0,assignedLabel:null,seenCount:1});
+      this.objects.set(id, {cx,cy,bbox,disappeared:0,assignedLabel:assignedLabel,seenCount:1});
       return id;
     }
     deregister(id){ this.objects.delete(id); }
-    markAssignedLabel(id, label){
-      const o = this.objects.get(id); if(o) o.assignedLabel = label;
-    }
+    markAssignedLabel(id, label){ const o = this.objects.get(id); if(o) o.assignedLabel = label; }
     reset(){ this.nextId=1; this.objects.clear(); }
     update(detections){
       facesThisFrame = detections.length;
@@ -133,12 +132,14 @@
 
       if(objectCentroids.length === 0){
         for(let i=0;i<inputCentroids.length;i++){
-          this.register(inputCentroids[i][0], inputCentroids[i][1], detections[i].bbox);
+          // detections[i] قد يحتوي على .knownLabel من المرحلة السابقة
+          const known = detections[i].knownLabel ?? null;
+          this.register(inputCentroids[i][0], inputCentroids[i][1], detections[i].bbox, known);
         }
         return this.objects;
       }
 
-      // distance matrix
+      // مسافة الماتريكس
       const D = [];
       for(let i=0;i<objectCentroids.length;i++){
         D[i] = [];
@@ -149,7 +150,6 @@
         }
       }
 
-      // greedy match
       const usedRows = new Set(), usedCols = new Set();
       const rows = D.map((r,i)=>({min:Math.min(...r),i})).sort((a,b)=>a.min-b.min).map(x=>x.i);
       for(const row of rows){
@@ -166,6 +166,10 @@
         obj.cx = det.cx; obj.cy = det.cy; obj.bbox = det.bbox;
         obj.disappeared = 0;
         obj.seenCount = Math.min(10, obj.seenCount + 1);
+        // إذا الكشف لديه knownLabel فنعينه هنا (يساعد لو اكتُشف قبل التسجيل)
+        if(det.knownLabel && !obj.assignedLabel){
+          obj.assignedLabel = det.knownLabel;
+        }
         usedRows.add(row); usedCols.add(minCol);
       }
 
@@ -179,11 +183,11 @@
         if(obj.disappeared > 20) this.objects.delete(id);
       }
 
-      // unmatched cols -> register
+      // unmatched cols -> register (مع تمرير knownLabel إذا وُجد)
       for(let c=0;c<detections.length;c++){
         if(usedCols.has(c)) continue;
         const d = detections[c];
-        this.register(d.cx, d.cy, d.bbox);
+        this.register(d.cx, d.cy, d.bbox, d.knownLabel ?? null);
       }
 
       return this.objects;
@@ -191,30 +195,26 @@
   }
 
   const tracker = new Tracker();
-  // قائمة الترقيم النهائية (التسلسل الذي نعرضه على اليمين). نخزن 'labels' عددية تبدأ 1...
-  const assignedOrder = [];
-  // مخزن القوالب: كل قالب = {label: 1, template: Float32Array(normalized), time: timestamp}
+  const assignedOrder = []; // قائمة الترتيب النهائية (labels)
+  // assignedTemplates: array of { label: number, templates: [Float32Array, ...], time: timestamp }
   const assignedTemplates = [];
 
-  // ========== دوال القالب (thumbnail) وقياس التشابه ==========
-  // يقطع من الفيديو المنطقة bbox ثم يحولها لقالب (Float32Array) مُطَبَّع بطول TEMPLATE_SIZE^2
+  // ===== وظائف القالب وcosine similarity =====
   function makeTemplateFromBbox(bbox){
     try{
       const [x,y,w,h] = bbox;
-      // نحاول أن نرسم من الفيديو مباشرة إلى offcanvas مع مراعاة الأبعاد
+      if(w <= 0 || h <= 0) return null;
       offctx.clearRect(0,0,TEMPLATE_SIZE,TEMPLATE_SIZE);
-      // drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh)
       offctx.drawImage(video, x, y, w, h, 0, 0, TEMPLATE_SIZE, TEMPLATE_SIZE);
       const imgdata = offctx.getImageData(0,0,TEMPLATE_SIZE,TEMPLATE_SIZE).data;
       const arr = new Float32Array(TEMPLATE_SIZE * TEMPLATE_SIZE);
-      // grayscale + normalize [0,1]
       let idx=0;
       for(let i=0;i<imgdata.length;i+=4){
         const r = imgdata[i], g = imgdata[i+1], b = imgdata[i+2];
-        const gray = (0.299*r + 0.587*g + 0.114*b) / 255; // 0..1
+        const gray = (0.299*r + 0.587*g + 0.114*b) / 255;
         arr[idx++] = gray;
       }
-      // normalize vector (for cosine similarity)
+      // normalize
       let norm = 0;
       for(let i=0;i<arr.length;i++) norm += arr[i]*arr[i];
       norm = Math.sqrt(norm) + 1e-6;
@@ -225,27 +225,47 @@
     }
   }
 
-  // cosine similarity between two normalized Float32Array vectors
   function cosineSim(a,b){
     if(!a || !b || a.length !== b.length) return 0;
     let s = 0;
     for(let i=0;i<a.length;i++) s += a[i]*b[i];
-    return s; // since we normalized, s in (0..1)
+    return s;
   }
 
-  // البحث في القوالب إذا يوجد مطابق -> إرجاع label أو null
+  // بحث عن أفضل قالب مطابق عبر جميع قوالب كل الـlabels
   function findMatchingTemplate(template){
     if(!template) return null;
     let bestLabel = null, bestScore = -1;
-    for(const t of assignedTemplates){
-      const sc = cosineSim(template, t.template);
-      if(sc > bestScore){ bestScore = sc; bestLabel = t.label; }
+    for(const entry of assignedTemplates){
+      for(const tpl of entry.templates){
+        const sc = cosineSim(template, tpl);
+        if(sc > bestScore){
+          bestScore = sc; bestLabel = entry.label;
+        }
+      }
     }
     if(bestScore >= TEMPLATE_SIM_THRESHOLD) return bestLabel;
     return null;
   }
 
-  // ========== reticle و loop ==========
+  // عند وجود قالب جديد لشخص معروف، خزّنه (حتى MAX_TEMPLATES_PER_LABEL)
+  function addTemplateForLabel(label, tpl){
+    if(!tpl) return;
+    let entry = assignedTemplates.find(e => e.label === label);
+    if(!entry){
+      entry = {label: label, templates: [], time: Date.now()};
+      assignedTemplates.push(entry);
+    }
+    // لا نكرر القوالب نفسها: فقط أضف إن لم تكن متطابقة جداً مع أي قالب موجود لهذا اللابل
+    for(const existing of entry.templates){
+      if(cosineSim(existing, tpl) > 0.98) return; // نفس العينة تقريباً
+    }
+    entry.templates.push(tpl);
+    if(entry.templates.length > MAX_TEMPLATES_PER_LABEL) entry.templates.shift();
+    entry.time = Date.now();
+  }
+
+  // ===== reticle + الحلقة الرئيسية =====
   function getReticleRect(w,h){
     const rw = Math.floor(w * RETICLE_SIZE_RATIO);
     const rh = Math.floor(h * RETICLE_SIZE_RATIO);
@@ -274,11 +294,9 @@
     window.addEventListener('resize', resize);
 
     model = await blazeface.load();
-    console.log('Model loaded');
     requestAnimationFrame(loopStep);
   }
 
-  let prevTs = 0;
   async function loopStep(ts){
     if(!running){ lastProcess = performance.now(); requestAnimationFrame(loopStep); return; }
     const now = performance.now();
@@ -296,9 +314,11 @@
 
   async function detectAndDraw(){
     if(!model) return;
+    // 1) كشف الوجوه
     const predictions = await model.estimateFaces(video, false, false);
     const w = canvas.width, h = canvas.height;
     const detections = [];
+
     if(predictions && predictions.length){
       for(const p of predictions){
         let x1,y1,x2,y2;
@@ -317,35 +337,28 @@
       }
     }
 
+    // 2) قبل أي تسجيل/تتبُّع: جرب مطابقة كل كشف مع القوالب المحفوظة (حتى نتجنب تسجيل الوجوه المحفوظة كـnew)
+    for(const det of detections){
+      const tpl = makeTemplateFromBbox(det.bbox);
+      det.template = tpl;
+      det.knownLabel = findMatchingTemplate(tpl); // null أو label
+      // إذا اكتشفنا أنه معروف فنضع flag فوراً
+    }
+
+    // 3) مرّر detections إلى tracker (الذي يقبل knownLabel داخل detect)
+    // نمرّر knownLabel ضمن الحقل det.knownLabel — tracker سيستخدمها عند التسجيل أو التحديث
     const objects = tracker.update(detections);
 
-    // رسم overlay
+    // 4) رسم وقرارات التعيين النهائية:
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const ret = getReticleRect(canvas.width, canvas.height);
     ctx.strokeStyle = 'rgba(200,200,200,0.95)'; ctx.lineWidth = 3;
     ctx.strokeRect(ret.x, ret.y, ret.w, ret.h);
 
-    // لكل كائن: قبل التعيين نتحقق لو هو مطابق لقالب محفوظ
-    for(const [id,obj] of objects){
-      // إذا لم يُعطَ له label بعد، نحاول مطابقة القالب الآن (لكن نحتاج bbox صالح)
-      if(!obj.assignedLabel){
-        // نأخذ قالب (thumbnail) من الفيديو حسب bbox
-        const tpl = makeTemplateFromBbox(obj.bbox);
-        if(tpl){
-          const matchLabel = findMatchingTemplate(tpl);
-          if(matchLabel){
-            // وجدنا تشابه: لا نعتبره شخص جديد، بل نعيّنه بلابل السابق
-            obj.assignedLabel = matchLabel;
-            // نرسم لاحقًا كـassigned (لن نضيف لِـassignedOrder لأن هذا الشخص موجود سابقًا)
-          }
-        }
-      }
-    }
-
-    // الآن نرسم ونطبق شرط التعيين للأجسام التي لم تُعطَ label بعد
+    // لكل كائن: لو له assignedLabel (سواء من القوالب أو جديد) نعرض علامة خضراء فوقه
     for(const [id,obj] of objects){
       const [x,y,wb,hb] = obj.bbox;
-      // draw bbox
+      // bbox
       ctx.strokeStyle = obj.assignedLabel ? 'rgba(0,200,0,0.95)' : 'rgba(0,180,255,0.95)';
       ctx.lineWidth = 2;
       ctx.strokeRect(x,y,wb,hb);
@@ -360,34 +373,64 @@
       ctx.fillStyle = obj.assignedLabel ? 'rgba(0,200,0,0.95)' : 'rgba(255,200,0,0.95)';
       ctx.fillRect(bx, by, Math.floor(barW * progress), 8);
 
-      // symbol (label or seenCount)
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const symbol = obj.assignedLabel ? ('#' + obj.assignedLabel) : Math.round(obj.seenCount).toString();
-      ctx.fillText(symbol, bx + Math.floor(barW/2), by + 4);
+      // symbol: لو assignedLabel نعرض #label inside green mark فوق الشخص
+      if(obj.assignedLabel){
+        const mx = x + Math.floor(wb/2);
+        const my = Math.max(18, y - 28);
+        // دائره خضراء
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(0,200,0,0.95)';
+        ctx.arc(mx, my, 16, 0, Math.PI*2);
+        ctx.fill();
+        ctx.closePath();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // assignedLabel قد تكون رقم موجود أو label سبق حفظناه
+        ctx.fillText('#' + obj.assignedLabel, mx, my);
+      } else {
+        // لم يُعيّن بعد: نعرض عدد الإطارات المرصودة كإشارة
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.round(obj.seenCount).toString(), bx + Math.floor(barW/2), by + 4);
+      }
 
-      // assign logic:
+      // الآن: إذا لم يكن assignedLabel فنتحقق من شرط التعيين (كما في السابق)
       if(!obj.assignedLabel){
         const meetsSeen = obj.seenCount >= ASSIGN_CONSECUTIVE;
         const autoAssign = autoAssignCheckbox.checked;
         const inReticle = (obj.cx >= ret.left && obj.cx <= ret.right && obj.cy >= ret.top && obj.cy <= ret.bottom);
         if(meetsSeen && (autoAssign || inReticle)){
-          // قبل أن نضيف كـlabel جديد، نتحقق مجددًا بمطابقة القالب (للتأكد لم يتغير)
+          // قبل إنشاء لابل جديد، نحاول مطابقة القالب الأخير المُلتقَط (أمان إضافي)
           const tpl = makeTemplateFromBbox(obj.bbox);
           const matchLabel = tpl ? findMatchingTemplate(tpl) : null;
           if(matchLabel){
+            // إن كان مطابق -> نعيّنه لكن لا نُضيف إلى assignedOrder (لقد احتُسب مسبقًا)
             obj.assignedLabel = matchLabel;
-            // no push to assignedOrder because it's already counted earlier
+            // نضيف قالب جديد لتحسين القوالب لهذا الشخص
+            addTemplateForLabel(matchLabel, tpl);
           } else {
-            // هذا شخص جديد: نولّد label جديد (رقم تسلسلي)
-            const newLabel = assignedOrder.length + 1; // 1-based label
+            // شخص جديد -> نولد label جديد (التسلسل يبدأ من 1)
+            const newLabel = assignedOrder.length + 1;
             obj.assignedLabel = newLabel;
             assignedOrder.push(newLabel);
-            // خزن قالبه لتمييزه لاحقًا
-            if(tpl) assignedTemplates.push({label: newLabel, template: tpl, time: Date.now()});
+            // خزّن قالب البداية (ولتقوية التخزين نأخذ أيضاً قالبين آخرين لاحقاً)
+            if(tpl) assignedTemplates.push({label: newLabel, templates: [tpl], time: Date.now()});
             updateSidebar();
           }
         }
+      } else {
+        // لو لديه assignedLabel مُسبق (سواء وجدناه من القوالب أو عيّناه الآن)
+        // نضيف قالب إضافي لهذا الـlabel دوريًا لتحسين المستقبل (إذا لم يكن مكرر)
+        try {
+          if(Math.random() < 0.15){ // لا تضيف كل إطار — تؤخذ عينات نادرة لتوفير CPU
+            const tpl2 = makeTemplateFromBbox(obj.bbox);
+            if(tpl2) addTemplateForLabel(obj.assignedLabel, tpl2);
+          }
+        } catch(e){}
       }
     }
 
@@ -405,7 +448,7 @@
     }
   }
 
-  // زر إعادة: يمسح كل القوالب والمتتبعات والعداد
+  // زر اعادة: يمسح كل القوالب والمتتبعات والعداد
   btnReset.addEventListener('click', ()=>{
     tracker.reset();
     assignedOrder.length = 0;
@@ -419,7 +462,7 @@
     btnPause.innerText = running ? 'إيقاف' : 'استئناف';
   });
 
-  // حساسيات السلايدر (مثل السابق)
+  // حساسيات السلايدر
   sensitivity.addEventListener('input', (e)=>{
     const v = parseInt(e.target.value,10);
     if(v === 1){ PROCESS_EVERY_MS = 40; RETICLE_SIZE_RATIO = 0.30; ASSIGN_CONSECUTIVE = 1; }
