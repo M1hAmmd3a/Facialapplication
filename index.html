@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>عدّ الأشخاص - محسّن</title>
+  <title>عدّ الأشخاص - مع تمييز ثابت</title>
   <style>
     :root { --sidebar-w: 180px; --reticle-color: rgba(200,200,200,0.95); }
     html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Arial;}
     .container{display:flex;height:100vh;align-items:stretch;}
     .camera-area{flex:1;position:relative;background:#000;overflow:hidden;}
-    video#v{width:100%;height:100%;object-fit:cover;} /* لا نعكس الفيديو هنا */
+    video#v{width:100%;height:100%;object-fit:cover;}
     canvas#overlay{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
     .hint { position:absolute; left:16px; top:12px; color:#fff; background:rgba(0,0,0,0.35); padding:8px 10px; border-radius:8px;}
     .sidebar{width:var(--sidebar-w);background:rgba(0,0,0,0.55);color:#fff;padding:10px;box-sizing:border-box;display:flex;flex-direction:column;}
@@ -61,17 +61,22 @@
     </div>
   </div>
 
+  <!-- TensorFlow + BlazeFace -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
 
   <script>
-  // ===== إعدادات قابلة للضبط =====
-  let PROCESS_EVERY_MS = 50;        // السرعة الافتراضية بوحدة ms (أصغر = أسرع)
-  let RETICLE_SIZE_RATIO = 0.34;    // حجم الريتكل (نسبة من عرض/ارتفاع الفيديو)
-  let ASSIGN_CONSECUTIVE = 2;       // عدد الإطارات المتتالية المطلوبة قبل التعيين
+  // ========== إعدادات قابلة للتعديل ==========
+  let PROCESS_EVERY_MS = 50;
+  let RETICLE_SIZE_RATIO = 0.34;
+  let ASSIGN_CONSECUTIVE = 2;
   const MAX_TRACK_DISTANCE = 120;
 
-  // ===== عناصر DOM =====
+  // thumbnail settings (لتمييز الأشخاص):  size للـtemplate
+  const TEMPLATE_SIZE = 64;           // مقاس القالب (64x64)
+  const TEMPLATE_SIM_THRESHOLD = 0.80; // عتبة تشابه كوزيني (0..1) -> 0.8 جيد كبداية
+
+  // ===== العناصر =====
   const video = document.getElementById('v');
   const canvas = document.getElementById('overlay');
   const ctx = canvas.getContext('2d');
@@ -88,25 +93,30 @@
   let lastProcess = 0;
   let lastTime = performance.now();
   let fps = 0;
-  let lastFpsCalc = performance.now();
   let facesThisFrame = 0;
 
-  // Tracker مُحسّن: كل كائن لديه seenCount
+  // offscreen canvas لتكوين القوالب بسرعة
+  const offcanvas = document.createElement('canvas');
+  offcanvas.width = TEMPLATE_SIZE; offcanvas.height = TEMPLATE_SIZE;
+  const offctx = offcanvas.getContext('2d');
+
+  // ===== Tracker مع دعم assignedLabel =====
   class Tracker {
     constructor(){
       this.nextId = 1;
-      this.objects = new Map(); // id -> {cx,cy,bbox,disappeared,assigned,seenCount}
+      this.objects = new Map(); // id -> {cx,cy,bbox,disappeared,assignedLabel,seenCount}
     }
     register(cx,cy,bbox){
       const id = this.nextId++;
-      this.objects.set(id, {cx,cy,bbox,disappeared:0,assigned:false,seenCount:1});
+      this.objects.set(id, {cx,cy,bbox,disappeared:0,assignedLabel:null,seenCount:1});
       return id;
     }
     deregister(id){ this.objects.delete(id); }
-    markAssigned(id){ const o=this.objects.get(id); if(o) o.assigned=true; }
+    markAssignedLabel(id, label){
+      const o = this.objects.get(id); if(o) o.assignedLabel = label;
+    }
     reset(){ this.nextId=1; this.objects.clear(); }
     update(detections){
-      // detections: [{cx,cy,bbox}]
       facesThisFrame = detections.length;
       if(detections.length === 0){
         for(const [id,obj] of this.objects){
@@ -122,7 +132,6 @@
       const inputCentroids = detections.map(d => [d.cx, d.cy]);
 
       if(objectCentroids.length === 0){
-        // register all quickly
         for(let i=0;i<inputCentroids.length;i++){
           this.register(inputCentroids[i][0], inputCentroids[i][1], detections[i].bbox);
         }
@@ -132,7 +141,7 @@
       // distance matrix
       const D = [];
       for(let i=0;i<objectCentroids.length;i++){
-        D[i]=[];
+        D[i] = [];
         for(let j=0;j<inputCentroids.length;j++){
           const dx = objectCentroids[i][0]-inputCentroids[j][0];
           const dy = objectCentroids[i][1]-inputCentroids[j][1];
@@ -156,7 +165,6 @@
         const obj = this.objects.get(id);
         obj.cx = det.cx; obj.cy = det.cy; obj.bbox = det.bbox;
         obj.disappeared = 0;
-        // increment seenCount (face kept being seen)
         obj.seenCount = Math.min(10, obj.seenCount + 1);
         usedRows.add(row); usedCols.add(minCol);
       }
@@ -168,7 +176,7 @@
         const obj = this.objects.get(id);
         obj.disappeared++;
         obj.seenCount = Math.max(0, obj.seenCount - 1);
-        if(obj.disappeared > 20) { this.objects.delete(id); }
+        if(obj.disappeared > 20) this.objects.delete(id);
       }
 
       // unmatched cols -> register
@@ -183,8 +191,61 @@
   }
 
   const tracker = new Tracker();
+  // قائمة الترقيم النهائية (التسلسل الذي نعرضه على اليمين). نخزن 'labels' عددية تبدأ 1...
   const assignedOrder = [];
+  // مخزن القوالب: كل قالب = {label: 1, template: Float32Array(normalized), time: timestamp}
+  const assignedTemplates = [];
 
+  // ========== دوال القالب (thumbnail) وقياس التشابه ==========
+  // يقطع من الفيديو المنطقة bbox ثم يحولها لقالب (Float32Array) مُطَبَّع بطول TEMPLATE_SIZE^2
+  function makeTemplateFromBbox(bbox){
+    try{
+      const [x,y,w,h] = bbox;
+      // نحاول أن نرسم من الفيديو مباشرة إلى offcanvas مع مراعاة الأبعاد
+      offctx.clearRect(0,0,TEMPLATE_SIZE,TEMPLATE_SIZE);
+      // drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh)
+      offctx.drawImage(video, x, y, w, h, 0, 0, TEMPLATE_SIZE, TEMPLATE_SIZE);
+      const imgdata = offctx.getImageData(0,0,TEMPLATE_SIZE,TEMPLATE_SIZE).data;
+      const arr = new Float32Array(TEMPLATE_SIZE * TEMPLATE_SIZE);
+      // grayscale + normalize [0,1]
+      let idx=0;
+      for(let i=0;i<imgdata.length;i+=4){
+        const r = imgdata[i], g = imgdata[i+1], b = imgdata[i+2];
+        const gray = (0.299*r + 0.587*g + 0.114*b) / 255; // 0..1
+        arr[idx++] = gray;
+      }
+      // normalize vector (for cosine similarity)
+      let norm = 0;
+      for(let i=0;i<arr.length;i++) norm += arr[i]*arr[i];
+      norm = Math.sqrt(norm) + 1e-6;
+      for(let i=0;i<arr.length;i++) arr[i] = arr[i] / norm;
+      return arr;
+    }catch(e){
+      return null;
+    }
+  }
+
+  // cosine similarity between two normalized Float32Array vectors
+  function cosineSim(a,b){
+    if(!a || !b || a.length !== b.length) return 0;
+    let s = 0;
+    for(let i=0;i<a.length;i++) s += a[i]*b[i];
+    return s; // since we normalized, s in (0..1)
+  }
+
+  // البحث في القوالب إذا يوجد مطابق -> إرجاع label أو null
+  function findMatchingTemplate(template){
+    if(!template) return null;
+    let bestLabel = null, bestScore = -1;
+    for(const t of assignedTemplates){
+      const sc = cosineSim(template, t.template);
+      if(sc > bestScore){ bestScore = sc; bestLabel = t.label; }
+    }
+    if(bestScore >= TEMPLATE_SIM_THRESHOLD) return bestLabel;
+    return null;
+  }
+
+  // ========== reticle و loop ==========
   function getReticleRect(w,h){
     const rw = Math.floor(w * RETICLE_SIZE_RATIO);
     const rh = Math.floor(h * RETICLE_SIZE_RATIO);
@@ -214,24 +275,20 @@
 
     model = await blazeface.load();
     console.log('Model loaded');
-    runLoop();
-  }
-
-  async function runLoop(){
     requestAnimationFrame(loopStep);
   }
 
+  let prevTs = 0;
   async function loopStep(ts){
     if(!running){ lastProcess = performance.now(); requestAnimationFrame(loopStep); return; }
     const now = performance.now();
     if(now - lastProcess >= PROCESS_EVERY_MS){
       await detectAndDraw();
-      // FPS calc
       const cur = performance.now();
       const dt = cur - lastTime;
       fps = Math.round(1000 / Math.max(1, dt));
       lastTime = cur;
-      debugInfo.innerText = `FPS: ${fps} | Faces: ${facesThisFrame}`;
+      debugInfo.innerText = `FPS: ${fps} | Faces: ${facesThisFrame} | Templates: ${assignedTemplates.length}`;
       lastProcess = now;
     }
     requestAnimationFrame(loopStep);
@@ -239,10 +296,7 @@
 
   async function detectAndDraw(){
     if(!model) return;
-    // estimate faces on video (no flip - using environment camera)
-    const predictions = await model.estimateFaces(video, false /*returnTensors*/, false /*flipHorizontal*/);
-
-    // prepare detections
+    const predictions = await model.estimateFaces(video, false, false);
     const w = canvas.width, h = canvas.height;
     const detections = [];
     if(predictions && predictions.length){
@@ -268,51 +322,71 @@
     // رسم overlay
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const ret = getReticleRect(canvas.width, canvas.height);
-    // draw reticle
-    ctx.strokeStyle = 'rgba(200,200,200,0.95)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(200,200,200,0.95)'; ctx.lineWidth = 3;
     ctx.strokeRect(ret.x, ret.y, ret.w, ret.h);
 
-    // لكل كائن: نرسم bbox، نعرض مؤشر تقدم (based on seenCount) ثم نعين إن استوفى الشروط
+    // لكل كائن: قبل التعيين نتحقق لو هو مطابق لقالب محفوظ
+    for(const [id,obj] of objects){
+      // إذا لم يُعطَ له label بعد، نحاول مطابقة القالب الآن (لكن نحتاج bbox صالح)
+      if(!obj.assignedLabel){
+        // نأخذ قالب (thumbnail) من الفيديو حسب bbox
+        const tpl = makeTemplateFromBbox(obj.bbox);
+        if(tpl){
+          const matchLabel = findMatchingTemplate(tpl);
+          if(matchLabel){
+            // وجدنا تشابه: لا نعتبره شخص جديد، بل نعيّنه بلابل السابق
+            obj.assignedLabel = matchLabel;
+            // نرسم لاحقًا كـassigned (لن نضيف لِـassignedOrder لأن هذا الشخص موجود سابقًا)
+          }
+        }
+      }
+    }
+
+    // الآن نرسم ونطبق شرط التعيين للأجسام التي لم تُعطَ label بعد
     for(const [id,obj] of objects){
       const [x,y,wb,hb] = obj.bbox;
-      // bbox
-      ctx.strokeStyle = obj.assigned ? 'rgba(0,200,0,0.9)' : 'rgba(0,180,255,0.9)';
+      // draw bbox
+      ctx.strokeStyle = obj.assignedLabel ? 'rgba(0,200,0,0.95)' : 'rgba(0,180,255,0.95)';
       ctx.lineWidth = 2;
       ctx.strokeRect(x,y,wb,hb);
 
-      // progress indicator (bar above bbox) - small visual feedback before assign
+      // progress bar
       const progress = Math.min(1, obj.seenCount / ASSIGN_CONSECUTIVE);
       const barW = Math.floor(wb * 0.6);
       const bx = x + Math.floor((wb - barW)/2);
       const by = Math.max(12, y - 22);
-      // background bar
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.fillRect(bx, by, barW, 8);
-      // progress
-      ctx.fillStyle = obj.assigned ? 'rgba(0,200,0,0.95)' : 'rgba(255,200,0,0.95)';
+      ctx.fillStyle = obj.assignedLabel ? 'rgba(0,200,0,0.95)' : 'rgba(255,200,0,0.95)';
       ctx.fillRect(bx, by, Math.floor(barW * progress), 8);
 
-      // draw check or question
-      ctx.fillStyle = obj.assigned ? '#000' : '#000';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const symbol = obj.assigned ? '✓' : Math.round(obj.seenCount).toString();
-      ctx.fillStyle = obj.assigned ? '#fff' : '#fff';
+      // symbol (label or seenCount)
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const symbol = obj.assignedLabel ? ('#' + obj.assignedLabel) : Math.round(obj.seenCount).toString();
       ctx.fillText(symbol, bx + Math.floor(barW/2), by + 4);
 
-      // check assignment condition
-      if(!obj.assigned){
+      // assign logic:
+      if(!obj.assignedLabel){
         const meetsSeen = obj.seenCount >= ASSIGN_CONSECUTIVE;
         const autoAssign = autoAssignCheckbox.checked;
         const inReticle = (obj.cx >= ret.left && obj.cx <= ret.right && obj.cy >= ret.top && obj.cy <= ret.bottom);
         if(meetsSeen && (autoAssign || inReticle)){
-          // assign
-          tracker.markAssigned(id);
-          obj.assigned = true;
-          assignedOrder.push(id);
-          updateSidebar();
+          // قبل أن نضيف كـlabel جديد، نتحقق مجددًا بمطابقة القالب (للتأكد لم يتغير)
+          const tpl = makeTemplateFromBbox(obj.bbox);
+          const matchLabel = tpl ? findMatchingTemplate(tpl) : null;
+          if(matchLabel){
+            obj.assignedLabel = matchLabel;
+            // no push to assignedOrder because it's already counted earlier
+          } else {
+            // هذا شخص جديد: نولّد label جديد (رقم تسلسلي)
+            const newLabel = assignedOrder.length + 1; // 1-based label
+            obj.assignedLabel = newLabel;
+            assignedOrder.push(newLabel);
+            // خزن قالبه لتمييزه لاحقًا
+            if(tpl) assignedTemplates.push({label: newLabel, template: tpl, time: Date.now()});
+            updateSidebar();
+          }
         }
       }
     }
@@ -323,18 +397,19 @@
   function updateSidebar(){
     idsList.innerHTML = '';
     for(let i = assignedOrder.length - 1; i >= 0; i--){
-      const id = assignedOrder[i];
+      const label = assignedOrder[i];
       const div = document.createElement('div');
       div.className = 'id-item';
-      div.innerText = id;
+      div.innerText = label.toString();
       idsList.appendChild(div);
     }
   }
 
-  // الأزرار
+  // زر إعادة: يمسح كل القوالب والمتتبعات والعداد
   btnReset.addEventListener('click', ()=>{
     tracker.reset();
     assignedOrder.length = 0;
+    assignedTemplates.length = 0;
     updateSidebar();
     countText.innerText = 'العدد: 0';
     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -344,10 +419,9 @@
     btnPause.innerText = running ? 'إيقاف' : 'استئناف';
   });
 
-  // حساسيات السلايدر
+  // حساسيات السلايدر (مثل السابق)
   sensitivity.addEventListener('input', (e)=>{
     const v = parseInt(e.target.value,10);
-    // نضبط إعدادات حسب الحساسية: 1=أسرع(لكن أخطاء), 4=أدق(أبطأ)
     if(v === 1){ PROCESS_EVERY_MS = 40; RETICLE_SIZE_RATIO = 0.30; ASSIGN_CONSECUTIVE = 1; }
     else if(v === 2){ PROCESS_EVERY_MS = 50; RETICLE_SIZE_RATIO = 0.34; ASSIGN_CONSECUTIVE = 2; }
     else if(v === 3){ PROCESS_EVERY_MS = 70; RETICLE_SIZE_RATIO = 0.40; ASSIGN_CONSECUTIVE = 3; }
