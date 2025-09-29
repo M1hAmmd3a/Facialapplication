@@ -3,1299 +3,1091 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>عداد الوجوه الذكي - نظام التعرف المتقدم</title>
+<title>عداد الوجوه المتقدم — كشف ذكي من بعيد</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
-
-:root {
-  --primary: #00ff88;
-  --primary-dark: #00cc6a;
-  --secondary: #0099ff;
-  --dark: #0a0e27;
-  --dark-light: #151b3d;
-  --dark-lighter: #1e2749;
-  --success: #00ff88;
-  --warning: #ffaa00;
-  --danger: #ff3366;
-  --glass: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Cairo', sans-serif;
-  background: linear-gradient(135deg, #0a0e27 0%, #1e2749 100%);
-  color: #fff;
-  overflow: hidden;
-  height: 100vh;
-}
-
-.container {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  height: 100vh;
-  gap: 20px;
-  padding: 20px;
-}
-
-.camera-section {
-  position: relative;
-  border-radius: 24px;
-  overflow: hidden;
-  background: var(--dark-lighter);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 
-              inset 0 0 100px rgba(0, 255, 136, 0.03);
-}
-
-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: brightness(1.05) contrast(1.1);
-}
-
-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.top-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  background: linear-gradient(180deg, rgba(10, 14, 39, 0.95) 0%, transparent 100%);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 10;
-}
-
-.logo {
-  font-size: 24px;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.stats-bar {
-  display: flex;
-  gap: 15px;
-}
-
-.stat-item {
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
-  padding: 10px 20px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  min-width: 80px;
-}
-
-.stat-label {
-  font-size: 11px;
-  opacity: 0.7;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--primary);
-}
-
-.sidebar {
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  padding: 25px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.main-counter {
-  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 153, 255, 0.1) 100%);
-  border: 2px solid var(--primary);
-  border-radius: 20px;
-  padding: 30px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.main-counter::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(0, 255, 136, 0.1), transparent);
-  animation: shine 3s infinite;
-}
-
-@keyframes shine {
-  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-}
-
-.counter-label {
-  font-size: 14px;
-  opacity: 0.8;
-  margin-bottom: 10px;
-  position: relative;
-  z-index: 1;
-}
-
-.counter-value {
-  font-size: 72px;
-  font-weight: 900;
-  color: var(--primary);
-  line-height: 1;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
-}
-
-.faces-section {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  opacity: 0.8;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.faces-grid {
-  flex: 1;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-  gap: 10px;
-  padding: 5px;
-}
-
-.faces-grid::-webkit-scrollbar {
-  width: 6px;
-}
-
-.faces-grid::-webkit-scrollbar-track {
-  background: var(--glass);
-  border-radius: 10px;
-}
-
-.faces-grid::-webkit-scrollbar-thumb {
-  background: var(--primary);
-  border-radius: 10px;
-}
-
-.face-card {
-  aspect-ratio: 1;
-  background: var(--glass);
-  border: 2px solid var(--glass-border);
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.8) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.face-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.face-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--primary);
-  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
-}
-
-.face-card:hover::before {
-  opacity: 0.1;
-}
-
-.face-icon {
-  font-size: 28px;
-  position: relative;
-  z-index: 1;
-}
-
-.face-number {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--primary);
-  position: relative;
-  z-index: 1;
-}
-
-.controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.btn {
-  padding: 16px;
-  border: none;
-  border-radius: 14px;
-  font-family: 'Cairo', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.btn:active::before {
-  width: 300px;
-  height: 300px;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: var(--dark);
-  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 15px 40px rgba(0, 255, 136, 0.5);
-}
-
-.btn-secondary {
-  background: var(--glass);
-  border: 2px solid var(--glass-border);
-  color: #fff;
-}
-
-.btn-secondary:hover {
-  background: var(--dark-lighter);
-  border-color: var(--primary);
-}
-
-.settings {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.setting-label {
-  font-size: 13px;
-  opacity: 0.9;
-}
-
-.slider-container {
-  flex: 1;
-  max-width: 180px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-input[type="range"] {
-  flex: 1;
-  height: 6px;
-  border-radius: 5px;
-  background: var(--dark-lighter);
-  outline: none;
-  -webkit-appearance: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
-}
-
-.slider-value {
-  min-width: 40px;
-  text-align: center;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.status {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
-  padding: 15px 20px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 10;
-}
-
-.status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 20px var(--success);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.7; }
-}
-
-.status-text {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.status-text {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* Start Overlay */
-.start-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(10, 14, 39, 0.95);
-  backdrop-filter: blur(20px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  transition: opacity 0.5s ease, visibility 0.5s ease;
-}
-
-.start-overlay.hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.start-box {
-  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 153, 255, 0.1) 100%);
-  border: 3px solid var(--primary);
-  border-radius: 30px;
-  padding: 60px 80px;
-  text-align: center;
-  max-width: 500px;
-  box-shadow: 0 30px 80px rgba(0, 255, 136, 0.3),
-              inset 0 0 60px rgba(0, 255, 136, 0.05);
-  animation: floatIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes floatIn {
-  0% {
-    opacity: 0;
-    transform: translateY(50px) scale(0.9);
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
+  
+  :root {
+    --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --warning: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    --dark: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    --glass: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    --shadow-hover: 0 30px 60px rgba(0, 0, 0, 0.25);
+    --sidebar-w: 280px;
   }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
-}
 
-.start-icon {
-  font-size: 80px;
-  margin-bottom: 20px;
-  animation: pulse 2s infinite;
-}
+  html, body {
+    height: 100%;
+    font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    overflow: hidden;
+  }
 
-.start-title {
-  font-size: 32px;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 15px;
-}
-
-.start-description {
-  font-size: 16px;
-  opacity: 0.8;
-  margin-bottom: 35px;
-  line-height: 1.6;
-}
-
-.start-button {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: var(--dark);
-  border: none;
-  padding: 20px 50px;
-  font-size: 20px;
-  font-weight: 700;
-  border-radius: 50px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 15px;
-  font-family: 'Cairo', sans-serif;
-  box-shadow: 0 15px 40px rgba(0, 255, 136, 0.4);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.start-button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.start-button:hover {
-  transform: translateY(-5px) scale(1.05);
-  box-shadow: 0 20px 60px rgba(0, 255, 136, 0.6);
-}
-
-.start-button:active::before {
-  width: 400px;
-  height: 400px;
-}
-
-.start-button-icon {
-  font-size: 24px;
-  animation: bounce 1s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(5px); }
-}
-
-@media (max-width: 768px) {
   .container {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
-    padding: 10px;
-    gap: 10px;
+    display: flex;
+    height: 100vh;
+    position: relative;
+  }
+
+  .camera-area {
+    flex: 1;
+    position: relative;
+    background: #000;
+    border-radius: 0 20px 20px 0;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  video#v {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  canvas#overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .hint {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: var(--shadow);
+    animation: fadeInSlide 0.8s ease-out;
   }
 
   .sidebar {
-    padding: 20px;
-    max-height: 40vh;
+    width: var(--sidebar-w);
+    background: var(--glass);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
   }
 
-  .main-counter {
-    padding: 20px;
+  .sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--primary);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
   }
 
-  .counter-value {
-    font-size: 48px;
+  .count-section {
+    background: var(--glass);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    padding: 25px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
   }
 
-  .stats-bar {
-    flex-wrap: wrap;
+  .count-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    animation: rotate 4s linear infinite;
+    z-index: -1;
   }
 
-  .stat-item {
-    min-width: 60px;
-    padding: 8px 12px;
+  .count-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
   }
 
-  .start-box {
-    padding: 40px 30px;
-    margin: 20px;
-  }
-
-  .start-title {
-    font-size: 24px;
-  }
-
-  .start-description {
+  .count-label {
     font-size: 14px;
+    font-weight: 600;
+    opacity: 0.8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
-  .start-button {
-    padding: 16px 40px;
+  .count-number {
+    font-size: 32px;
+    font-weight: 900;
+    background: var(--success);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+  }
+
+  .ids-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ids-header {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ids-header::before {
+    content: '👥';
     font-size: 18px;
   }
-}
 
-.loading {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--dark);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 30px;
-  z-index: 1000;
-  transition: opacity 0.5s ease;
-}
+  .ids-list {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 10px;
+    max-height: 300px;
+  }
 
-.loading.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
+  .ids-list::-webkit-scrollbar {
+    width: 4px;
+  }
 
-.loader {
-  width: 80px;
-  height: 80px;
-  border: 6px solid var(--dark-lighter);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
+  .ids-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+  .ids-list::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+  }
 
-.loading-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--primary);
-}
+  .id-item {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    padding: 12px 8px;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    animation: slideInUp 0.6s ease-out backwards;
+  }
 
-.error-message {
-  background: rgba(255, 51, 102, 0.1);
-  border: 2px solid var(--danger);
-  color: var(--danger);
-  padding: 15px 20px;
-  border-radius: 12px;
-  margin-top: 20px;
-  text-align: center;
-  max-width: 400px;
-}
+  .id-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+  }
+
+  .id-item:hover::before {
+    left: 100%;
+  }
+
+  .id-item:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .control-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+  }
+
+  .btn:hover::before {
+    left: 100%;
+  }
+
+  .btn-reset {
+    background: var(--secondary);
+    color: white;
+    box-shadow: 0 8px 20px rgba(245, 87, 108, 0.3);
+  }
+
+  .btn-reset:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(245, 87, 108, 0.4);
+  }
+
+  .btn-pause {
+    background: var(--warning);
+    color: white;
+    box-shadow: 0 8px 20px rgba(250, 112, 154, 0.3);
+  }
+
+  .btn-pause:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(250, 112, 154, 0.4);
+  }
+
+  .setting-group {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    padding: 15px;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+  }
+
+  .setting-group:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .setting-label {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.9;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .speed-slider {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+  }
+
+  .speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--success);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+    transition: all 0.3s ease;
+  }
+
+  .speed-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+  }
+
+  .checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+  }
+
+  .custom-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--glass-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .custom-checkbox.checked {
+    background: var(--success);
+    border-color: transparent;
+  }
+
+  .custom-checkbox.checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .debug {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: var(--shadow);
+    animation: fadeInSlide 0.8s ease-out 0.2s both;
+  }
+
+  @keyframes fadeInSlide {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 900px) {
+    .container {
+      flex-direction: column-reverse;
+    }
+    
+    .sidebar {
+      width: 100%;
+      height: 280px;
+      flex-direction: row;
+      gap: 15px;
+      padding: 15px;
+      border-radius: 20px 20px 0 0;
+    }
+    
+    .count-section {
+      min-width: 120px;
+      padding: 15px;
+    }
+    
+    .count-number {
+      font-size: 24px;
+    }
+    
+    .ids-section {
+      flex: 1;
+    }
+    
+    .ids-list {
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      max-height: 120px;
+    }
+    
+    .controls {
+      min-width: 140px;
+    }
+    
+    .camera-area {
+      border-radius: 0;
+    }
+    
+    .hint, .debug {
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+  }
+
+  /* Animations for face detection */
+  .pulse {
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  /* Loading animation */
+  .loading {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: loading 1.5s infinite;
+  }
+
+  @keyframes loading {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
 </style>
 </head>
 <body>
-
-<div class="loading" id="loading">
-  <div class="loader"></div>
-  <div class="loading-text" id="loadingText">جاري التحضير...</div>
-</div>
-
 <div class="container">
-  <div class="camera-section">
-    <div class="top-bar">
-      <div class="logo">
-        <span>👁️</span>
-        <span>عداد الوجوه الذكي</span>
-      </div>
-      <div class="stats-bar">
-        <div class="stat-item">
-          <div class="stat-label">العدد الكلي</div>
-          <div class="stat-value" id="topCounter">0</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">FPS</div>
-          <div class="stat-value" id="fpsDisplay">0</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">معالجة</div>
-          <div class="stat-value" id="processingDisplay">0ms</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">دقة</div>
-          <div class="stat-value">99%</div>
-        </div>
-      </div>
-    </div>
-
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
-
-    <!-- Start Button Overlay -->
-    <div class="start-overlay" id="startOverlay">
-      <div class="start-box">
-        <div class="start-icon">👁️‍🗨️</div>
-        <div class="start-title">عداد الوجوه الذكي</div>
-        <div class="start-description">اضغط على الزر لبدء فحص وحساب الوجوه</div>
-        <button class="start-button" id="startButton">
-          <span class="start-button-icon">▶️</span>
-          <span>بدء الفحص</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="status">
-      <div class="status-dot"></div>
-      <div class="status-text" id="statusText">جاري التهيئة...</div>
-    </div>
+  <div class="camera-area">
+    <video id="v" autoplay playsinline></video>
+    <canvas id="overlay"></canvas>
+    <div class="hint">🎯 وجّه الكاميرا نحو الأشخاص — سيتم تعيين رقم أخضر لكل وجه جديد</div>
+    <div class="debug" id="debugInfo">⚡ جاري تحميل النماذج المتقدمة...</div>
   </div>
 
   <div class="sidebar">
-    <div class="main-counter">
-      <div class="counter-label">إجمالي الأشخاص</div>
-      <div class="counter-value" id="mainCounter">0</div>
+    <div class="count-section">
+      <div class="count-label">إجمالي الوجوه</div>
+      <div class="count-number" id="countText">0</div>
     </div>
 
-    <div class="faces-section">
-      <div class="section-title">
-        <span>👥</span>
-        <span>الوجوه المسجلة</span>
-      </div>
-      <div class="faces-grid" id="facesGrid"></div>
+    <div class="ids-section">
+      <div class="ids-header">الوجوه المكتشفة</div>
+      <div class="ids-list" id="idsList"></div>
     </div>
 
     <div class="controls">
-      <button class="btn btn-primary" id="btnReset">🔄 إعادة تعيين</button>
-      <button class="btn btn-secondary" id="btnPause">⏸️ إيقاف</button>
-    </div>
-
-    <div class="settings">
-      <div class="setting-item">
-        <div class="setting-label">سرعة المعالجة</div>
-        <div class="slider-container">
-          <input type="range" id="speedSlider" min="30" max="150" step="10" value="50">
-          <div class="slider-value" id="speedValue">50</div>
+      <div class="control-group">
+        <button class="btn btn-reset" id="btnReset">🔄 إعادة تعيين</button>
+        <button class="btn btn-pause" id="btnPause">⏸️ إيقاف</button>
+      </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">التعيين التلقائي في أي مكان</label>
+        <div class="checkbox-wrapper">
+          <div class="custom-checkbox" id="autoAssignBox"></div>
+          <input type="checkbox" id="autoAssign" style="display: none;" />
         </div>
       </div>
-      <div class="setting-item">
-        <div class="setting-label">حساسية الكشف</div>
-        <div class="slider-container">
-          <input type="range" id="sensitivitySlider" min="30" max="60" step="5" value="40">
-          <div class="slider-value" id="sensitivityValue">40</div>
-        </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">سرعة المعالجة (أبطأ = دقة أعلى)</label>
+        <input id="speed" type="range" min="40" max="180" step="10" value="80" class="speed-slider"/>
       </div>
     </div>
   </div>
 </div>
 
-<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- face-api.js -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <script>
-// الانتظار حتى تحميل جميع المكتبات
-window.addEventListener('load', async () => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const MODEL_URLS = [
-    'https://justadudewhohacks.github.io/face-api.js/models',
-    '/models',
-    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'
-  ];
+/* إعدادات مخصّصة لاكتشاف من بعيد */
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
+let PROCESS_INTERVAL_MS = 80;          // اضبط من الشريط؛ أصغر = أسرع لكن أكثر حمل CPU
+const SSD_MIN_CONFIDENCE = 0.34;      // أقل = يلتقط وجوه صغيرة أبعد (يمكن رفع إذا أخطاء)
+const ASSIGN_CONSECUTIVE = 2;         // إطارات الاستقرار قبل التعيين
+const MIN_BOX_AREA_RATIO = 0.00003;   // نقبل صناديق صغيرة (للكشف من بعيد) — قد تزيد false positives، لذا هناك فلترة landmarks+embeddings
+const MAX_DESCRIPTOR_DISTANCE = 0.5;  // عتبة التطابق (0.4-0.6 نطاق عملي)
+const MAX_TEMPLATES_PER_LABEL = 6;
 
-  let PROCESS_INTERVAL = 50;
-  let SCORE_THRESHOLD = 0.40;
-  const INPUT_SIZE = 224;
-  const ASSIGN_FRAMES = 3;
-  const MAX_DESCRIPTOR_DISTANCE = 0.42;
-  const MAX_TEMPLATES = 8;
+const video = document.getElementById('v');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const debugInfo = document.getElementById('debugInfo');
+const countText = document.getElementById('countText');
+const idsList = document.getElementById('idsList');
+const btnReset = document.getElementById('btnReset');
+const btnPause = document.getElementById('btnPause');
+const autoAssignCheckbox = document.getElementById('autoAssign');
+const autoAssignBox = document.getElementById('autoAssignBox');
+const speedSlider = document.getElementById('speed');
 
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  const loading = document.getElementById('loading');
-  const loadingText = document.getElementById('loadingText');
-  const mainCounter = document.getElementById('mainCounter');
-  const facesGrid = document.getElementById('facesGrid');
-  const btnReset = document.getElementById('btnReset');
-  const btnPause = document.getElementById('btnPause');
-  const fpsDisplay = document.getElementById('fpsDisplay');
-  const processingDisplay = document.getElementById('processingDisplay');
-  const statusText = document.getElementById('statusText');
-  const speedSlider = document.getElementById('speedSlider');
-  const speedValue = document.getElementById('speedValue');
-  const sensitivitySlider = document.getElementById('sensitivitySlider');
-  const sensitivityValue = document.getElementById('sensitivityValue');
+let modelsLoaded = false;
+let running = true;
+let labeledDescriptors = []; // {label: number, descriptors: [[...],...]}
+let faceMatcher = null;
+let assignedLabels = [];
+let nextLabel = 1;
+let lastLoop = 0;
+let lastTime = performance.now();
+let fps = 0;
 
-  let modelsLoaded = false;
-  let running = false;
-  let faceMatcher = null;
-  let labeledDescriptors = [];
-  let assignedLabels = [];
-  let nextLabel = 1;
-  let fps = 0;
-  let lastTime = performance.now();
-  let frameCount = 0;
+// Custom checkbox handling
+autoAssignBox.addEventListener('click', () => {
+  autoAssignCheckbox.checked = !autoAssignCheckbox.checked;
+  autoAssignBox.classList.toggle('checked', autoAssignCheckbox.checked);
+});
 
-  class AdvancedTracker {
-    constructor() {
-      this.nextId = 1;
-      this.objects = new Map();
-      this.disappeared = new Map();
-      this.maxDisappeared = 15;
-      this.maxDistance = 150;
-    }
-
-    register(centroid, bbox, descriptor, knownLabel = null) {
-      const id = this.nextId++;
-      this.objects.set(id, {
-        centroid, bbox, descriptor,
-        seenCount: 1,
-        label: knownLabel,
-        lastSeen: Date.now()
-      });
-      this.disappeared.set(id, 0);
-      return id;
-    }
-
-    deregister(id) {
-      this.objects.delete(id);
-      this.disappeared.delete(id);
-    }
-
-    update(detections) {
-      if (detections.length === 0) {
-        for (const id of Array.from(this.disappeared.keys())) {
-          const val = this.disappeared.get(id) + 1;
-          this.disappeared.set(id, val);
-          if (val > this.maxDisappeared) this.deregister(id);
-        }
-        return this.objects;
+// بسيط — متتبع مركزيات لضمان استقرار التعرف
+class CentroidTracker {
+  constructor(maxDisappeared=12, maxDistance=140){
+    this.nextId = 1;
+    this.objects = new Map(); // id -> {centroid,bbox,seenCount,label}
+    this.disappeared = new Map();
+    this.maxDisappeared = maxDisappeared;
+    this.maxDistance = maxDistance;
+  }
+  register(centroid,bbox, knownLabel=null){
+    const id = this.nextId++;
+    this.objects.set(id, {centroid, bbox, seenCount:1, label: knownLabel});
+    this.disappeared.set(id, 0);
+    return id;
+  }
+  deregister(id){
+    this.objects.delete(id); this.disappeared.delete(id);
+  }
+  update(rects){ // rects: [{centroid:[x,y], bbox:[x,y,w,h], knownLabel, descriptor}]
+    if(rects.length === 0){
+      for(const id of Array.from(this.disappeared.keys())){
+        const v = this.disappeared.get(id) + 1; this.disappeared.set(id, v);
+        const obj = this.objects.get(id); if(obj){ obj.seenCount = Math.max(0, obj.seenCount - 1); }
+        if(v > this.maxDisappeared) this.deregister(id);
       }
-
-      if (this.objects.size === 0) {
-        for (const det of detections) {
-          this.register(det.centroid, det.bbox, det.descriptor, det.knownLabel);
-        }
-        return this.objects;
-      }
-
-      const objectIDs = Array.from(this.objects.keys());
-      const objectCentroids = objectIDs.map(id => this.objects.get(id).centroid);
-      const inputCentroids = detections.map(d => d.centroid);
-
-      const D = Array(objectCentroids.length).fill(0).map(() => 
-        Array(inputCentroids.length).fill(0)
-      );
-
-      for (let i = 0; i < objectCentroids.length; i++) {
-        for (let j = 0; j < inputCentroids.length; j++) {
-          const dx = objectCentroids[i][0] - inputCentroids[j][0];
-          const dy = objectCentroids[i][1] - inputCentroids[j][1];
-          D[i][j] = Math.hypot(dx, dy);
-        }
-      }
-
-      const usedRows = new Set();
-      const usedCols = new Set();
-      const rows = D.map((row, i) => ({ min: Math.min(...row), i }))
-        .sort((a, b) => a.min - b.min)
-        .map(x => x.i);
-
-      for (const row of rows) {
-        let minVal = Infinity, minCol = -1;
-        for (let c = 0; c < D[row].length; c++) {
-          if (usedCols.has(c)) continue;
-          if (D[row][c] < minVal) {
-            minVal = D[row][c];
-            minCol = c;
-          }
-        }
-
-        if (minCol === -1 || minVal > this.maxDistance) continue;
-
-        const id = objectIDs[row];
-        const det = detections[minCol];
-        const obj = this.objects.get(id);
-
-        obj.centroid = det.centroid;
-        obj.bbox = det.bbox;
-        obj.descriptor = det.descriptor;
-        obj.seenCount = Math.min(30, obj.seenCount + 1);
-        obj.lastSeen = Date.now();
-
-        if (det.knownLabel && !obj.label) {
-          obj.label = det.knownLabel;
-        }
-
-        this.disappeared.set(id, 0);
-        usedRows.add(row);
-        usedCols.add(minCol);
-      }
-
-      for (let r = 0; r < D.length; r++) {
-        if (usedRows.has(r)) continue;
-        const id = objectIDs[r];
-        const val = this.disappeared.get(id) + 1;
-        this.disappeared.set(id, val);
-        if (val > this.maxDisappeared) this.deregister(id);
-      }
-
-      for (let c = 0; c < detections.length; c++) {
-        if (usedCols.has(c)) continue;
-        const det = detections[c];
-        this.register(det.centroid, det.bbox, det.descriptor, det.knownLabel);
-      }
-
       return this.objects;
     }
-
-    reset() {
-      this.nextId = 1;
-      this.objects.clear();
-      this.disappeared.clear();
+    if(this.objects.size === 0){
+      for(const r of rects) this.register(r.centroid, r.bbox, r.knownLabel ?? null);
+      return this.objects;
     }
-  }
-
-  const tracker = new AdvancedTracker();
-
-  function addDescriptorForLabel(label, descriptor) {
-    let entry = labeledDescriptors.find(e => e.label === label);
-    if (!entry) {
-      entry = { label, descriptors: [] };
-      labeledDescriptors.push(entry);
-    }
-
-    for (const d of entry.descriptors) {
-      let dist = 0;
-      for (let i = 0; i < d.length; i++) {
-        const diff = d[i] - descriptor[i];
-        dist += diff * diff;
+    const objectIDs = Array.from(this.objects.keys());
+    const objectCentroids = objectIDs.map(id => this.objects.get(id).centroid);
+    const inputCentroids = rects.map(r => r.centroid);
+    const D = Array(objectCentroids.length).fill(0).map(()=>Array(inputCentroids.length).fill(0));
+    for(let i=0;i<objectCentroids.length;i++){
+      for(let j=0;j<inputCentroids.length;j++){
+        const dx = objectCentroids[i][0] - inputCentroids[j][0];
+        const dy = objectCentroids[i][1] - inputCentroids[j][1];
+        D[i][j] = Math.hypot(dx,dy);
       }
-      dist = Math.sqrt(dist);
-      if (dist < 0.015) return;
     }
-
-    entry.descriptors.push(Array.from(descriptor));
-    if (entry.descriptors.length > MAX_TEMPLATES) entry.descriptors.shift();
-    rebuildFaceMatcher();
+    const usedRows = new Set(), usedCols = new Set();
+    const rows = D.map((row,i)=>({min:Math.min(...row), i})).sort((a,b)=>a.min-b.min).map(x=>x.i);
+    for(const row of rows){
+      let minVal = Infinity, minCol = -1;
+      for(let c=0;c<D[row].length;c++){
+        if(usedCols.has(c)) continue;
+        if(D[row][c] < minVal){ minVal = D[row][c]; minCol = c; }
+      }
+      if(minCol === -1) continue;
+      if(minVal > this.maxDistance) continue;
+      const id = objectIDs[row];
+      const det = rects[minCol];
+      const obj = this.objects.get(id);
+      obj.centroid = det.centroid; obj.bbox = det.bbox; obj.seenCount = Math.min(20, obj.seenCount + 1);
+      if(det.knownLabel && !obj.label) obj.label = det.knownLabel;
+      this.disappeared.set(id, 0);
+      usedRows.add(row); usedCols.add(minCol);
+    }
+    for(let r=0;r<D.length;r++){
+      if(usedRows.has(r)) continue;
+      const id = objectIDs[r]; const v = this.disappeared.get(id)+1; this.disappeared.set(id, v);
+      const obj = this.objects.get(id); if(obj) obj.seenCount = Math.max(0, obj.seenCount - 1);
+      if(v > this.maxDisappeared) this.deregister(id);
+    }
+    for(let c=0;c<rects.length;c++){
+      if(usedCols.has(c)) continue;
+      const d = rects[c];
+      this.register(d.centroid, d.bbox, d.knownLabel ?? null);
+    }
+    return this.objects;
   }
+  reset(){ this.nextId = 1; this.objects.clear(); this.disappeared.clear(); }
+}
+const tracker = new CentroidTracker(12, 140);
 
-  function rebuildFaceMatcher() {
-    if (labeledDescriptors.length === 0) {
-      faceMatcher = null;
-      return;
-    }
+function rebuildFaceMatcher(){
+  if(labeledDescriptors.length === 0){ faceMatcher = null; return; }
+  const faceapiArr = labeledDescriptors.map(e => new faceapi.LabeledFaceDescriptors(String(e.label), e.descriptors.map(d => Float32Array.from(d))));
+  faceMatcher = new faceapi.FaceMatcher(faceapiArr, MAX_DESCRIPTOR_DISTANCE || 0.6);
+}
 
-    const labeled = labeledDescriptors.map(entry => {
-      const descriptors = entry.descriptors.map(d => new Float32Array(d));
-      return new faceapi.LabeledFaceDescriptors(String(entry.label), descriptors);
+// add descriptor for label
+function addDescriptorForLabel(label, descriptor){
+  let entry = labeledDescriptors.find(e => e.label === label);
+  if(!entry){ entry = {label: label, descriptors: []}; labeledDescriptors.push(entry); }
+  // dedupe
+  for(const d of entry.descriptors){
+    let dist = 0; for(let i=0;i<d.length;i++){ const diff = d[i] - descriptor[i]; dist += diff*diff; } dist = Math.sqrt(dist);
+    if(dist < 0.02) return;
+  }
+  entry.descriptors.push(Array.from(descriptor));
+  if(entry.descriptors.length > MAX_TEMPLATES_PER_LABEL) entry.descriptors.shift();
+  rebuildFaceMatcher();
+}
+
+// Enhanced badge draw with glow effect
+function drawBadge(x, y, text) {
+  const radius = 22;
+  
+  // Glow effect
+  ctx.shadowColor = '#00f2fe';
+  ctx.shadowBlur = 15;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  
+  // Outer glow
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(79, 172, 254, 0.3)';
+  ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Main badge
+  ctx.beginPath();
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  gradient.addColorStop(0, '#4facfe');
+  gradient.addColorStop(1, '#00f2fe');
+  ctx.fillStyle = gradient;
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Inner highlight
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.arc(x - 3, y - 3, radius * 0.6, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Reset shadow
+  ctx.shadowBlur = 0;
+  
+  // Text
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px Cairo, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 1);
+}
+
+// init: load models + open camera
+async function init(){
+  debugInfo.innerHTML = '🤖 جاري تحميل نماذج الذكاء الاصطناعي...';
+  debugInfo.classList.add('loading');
+  
+  // tf backend (webgl) قد يسرّع
+  if (tf && tf.setBackend) { 
+    try{ 
+      await tf.setBackend('webgl'); 
+      debugInfo.innerHTML = '⚡ تسريع GPU مُفعّل - جاري التحميل...';
+    }catch(e){
+      debugInfo.innerHTML = '💻 CPU معالجة - جاري التحميل...';
+    } 
+    await tf.ready(); 
+  }
+  
+  await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+  
+  modelsLoaded = true;
+  debugInfo.classList.remove('loading');
+  debugInfo.innerHTML = '📱 نماذج جاهزة — بدء الكاميرا...';
+
+  // request high-res camera
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment', 
+        width: { ideal: 1920 }, 
+        height: { ideal: 1080 } 
+      }, 
+      audio: false 
     });
-
-    faceMatcher = new faceapi.FaceMatcher(labeled, MAX_DESCRIPTOR_DISTANCE);
-  }
-
-  function updateFacesGrid() {
-    facesGrid.innerHTML = '';
-    for (let i = assignedLabels.length - 1; i >= 0; i--) {
-      const label = assignedLabels[i];
-      const card = document.createElement('div');
-      card.className = 'face-card';
-      card.innerHTML = `
-        <div class="face-icon">✓</div>
-        <div class="face-number">#${label}</div>
-      `;
-      facesGrid.appendChild(card);
-    }
-  }
-
-  function drawDetection(obj, isNew = false) {
-    const [x, y, w, h] = obj.bbox;
-    
-    if (obj.label) {
-      ctx.strokeStyle = 'rgba(0, 255, 136, 0.9)';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = 'rgba(0, 255, 136, 0.8)';
-      ctx.shadowBlur = 20;
-      ctx.strokeRect(x, y, w, h);
-      ctx.shadowBlur = 0;
-
-      const centerX = x + w / 2;
-      const centerY = y - 40;
-      const size = 50;
-
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(0, 255, 136, 0.95)';
-      ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      ctx.beginPath();
-      ctx.moveTo(centerX - size/4, centerY);
-      ctx.lineTo(centerX - size/8, centerY + size/4);
-      ctx.lineTo(centerX + size/3, centerY - size/4);
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Cairo';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`#${obj.label}`, x + w / 2, y + h + 30);
-
-      if (isNew) {
-        ctx.strokeStyle = 'rgba(0, 255, 136, 1)';
-        ctx.lineWidth = 8;
-        ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
-      }
-    } else {
-      ctx.strokeStyle = 'rgba(255, 170, 0, 0.8)';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([10, 5]);
-      ctx.strokeRect(x, y, w, h);
-      ctx.setLineDash([]);
-
-      const progress = Math.min(1, obj.seenCount / ASSIGN_FRAMES);
-      const barW = w * 0.7;
-      const barX = x + (w - barW) / 2;
-      const barY = y + h + 15;
-
-      ctx.fillStyle = 'rgba(30, 39, 73, 0.8)';
-      ctx.fillRect(barX, barY, barW, 8);
-
-      ctx.fillStyle = 'rgba(255, 170, 0, 0.9)';
-      ctx.fillRect(barX, barY, Math.floor(barW * progress), 8);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px Cairo';
-      ctx.textAlign = 'center';
-      ctx.fillText('جاري المعالجة...', x + w / 2, y - 20);
-    }
-  }
-
-  async function processFrame() {
-    if (!modelsLoaded || !running || video.readyState < 2) return;
-
-    const startTime = performance.now();
-
-    const options = new faceapi.TinyFaceDetectorOptions({
-      inputSize: INPUT_SIZE,
-      scoreThreshold: SCORE_THRESHOLD
-    });
-
-    const results = await faceapi
-      .detectAllFaces(video, options)
-      .withFaceLandmarks()
-      .withFaceDescriptors();
-
-    const w = canvas.width, h = canvas.height;
-    const detections = [];
-
-    for (const r of results) {
-      if (!r.detection || !r.landmarks || !r.descriptor) continue;
-
-      const box = r.detection.box;
-      const areaRatio = (box.width * box.height) / (w * h);
-      if (areaRatio < 0.0002) continue;
-
-      const left = r.landmarks.getLeftEye();
-      const right = r.landmarks.getRightEye();
-      if (!left || !right) continue;
-
-      const avgPoint = (pts) => {
-        let sx = 0, sy = 0;
-        for (const p of pts) { sx += p.x; sy += p.y; }
-        return { x: sx / pts.length, y: sy / pts.length };
-      };
-
-      const aL = avgPoint(left), aR = avgPoint(right);
-      const eyeDist = Math.hypot(aL.x - aR.x, aL.y - aR.y);
-      if ((eyeDist / box.width) < 0.1) continue;
-
-      const cx = Math.floor(box.x + box.width / 2);
-      const cy = Math.floor(box.y + box.height / 2);
-
-      let knownLabel = null;
-      if (faceMatcher) {
-        const best = faceMatcher.findBestMatch(r.descriptor);
-        if (best && best.label !== 'unknown' && best.distance <= MAX_DESCRIPTOR_DISTANCE) {
-          knownLabel = parseInt(best.label);
-        }
-      }
-
-      detections.push({
-        centroid: [cx, cy],
-        bbox: [Math.floor(box.x), Math.floor(box.y), Math.floor(box.width), Math.floor(box.height)],
-        descriptor: r.descriptor,
-        knownLabel
-      });
-    }
-
-    const objects = tracker.update(detections);
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const newlyAssigned = [];
-
-    for (const [id, obj] of objects) {
-      if (!obj.label && obj.seenCount >= ASSIGN_FRAMES) {
-        let best = null, bestD = Infinity;
-        for (const det of detections) {
-          const dx = det.centroid[0] - obj.centroid[0];
-          const dy = det.centroid[1] - obj.centroid[1];
-          const d = Math.hypot(dx, dy);
-          if (d < bestD) { bestD = d; best = det; }
-        }
-
-        if (best) {
-          if (best.knownLabel != null) {
-            obj.label = best.knownLabel;
-            addDescriptorForLabel(obj.label, best.descriptor);
-          } else {
-            const newLabel = nextLabel++;
-            obj.label = newLabel;
-            assignedLabels.push(newLabel);
-            addDescriptorForLabel(newLabel, best.descriptor);
-            newlyAssigned.push(obj);
-
-            try {
-              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-            } catch (e) {}
-
-            updateFacesGrid();
-          }
-        }
-      }
-
-      drawDetection(obj, newlyAssigned.includes(obj));
-    }
-
-    mainCounter.textContent = assignedLabels.length;
-
-    const processingTime = Math.round(performance.now() - startTime);
-    processingDisplay.textContent = processingTime + 'ms';
-
-    frameCount++;
-    const now = performance.now();
-    if (now - lastTime >= 1000) {
-      fps = frameCount;
-      fpsDisplay.textContent = fps;
-      frameCount = 0;
-      lastTime = now;
-    }
-
-    statusText.textContent = objects.size > 0 ? 
-      `جاري معالجة ${objects.size} وجه` : 
-      'جاهز للمسح';
-  }
-
-  async function loadModelsWithFallback() {
-    for (let i = 0; i < MODEL_URLS.length; i++) {
-      const url = MODEL_URLS[i];
-      try {
-        loadingText.textContent = `جاري تحميل النماذج (${i + 1}/${MODEL_URLS.length})...`;
-        
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(url),
-          faceapi.nets.faceLandmark68Net.loadFromUri(url),
-          faceapi.nets.faceRecognitionNet.loadFromUri(url)
-        ]);
-        
-        return true;
-      } catch (err) {
-        console.warn(`فشل التحميل من ${url}:`, err);
-        if (i === MODEL_URLS.length - 1) {
-          throw new Error('فشل تحميل النماذج من جميع المصادر');
-        }
-      }
-    }
-    return false;
-  }
-
-  async function init() {
-    try {
-      if (typeof tf === 'undefined' || typeof faceapi === 'undefined') {
-        throw new Error('المكتبات غير محملة بشكل صحيح');
-      }
-
-      loadingText.textContent = 'تهيئة TensorFlow...';
-      if (tf.setBackend) {
-        try {
-          await tf.setBackend('webgl');
-          await tf.ready();
-        } catch (e) {
-          console.warn('WebGL غير متوفر، استخدام CPU');
-          await tf.setBackend('cpu');
-          await tf.ready();
-        }
-      }
-
-      loadingText.textContent = 'جاري تحميل نماذج التعرف...';
-      await loadModelsWithFallback();
-      modelsLoaded = true;
-
-      loadingText.textContent = 'جاري تشغيل الكاميرا...';
-
-      const constraints = {
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 }
-        },
-        audio: false
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
+    video.srcObject = stream; 
+    await video.play();
+    debugInfo.innerHTML = '🎥 كاميرا عالية الدقة جاهزة';
+  } catch(err){
+    try{ 
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); 
+      video.srcObject = stream; 
       await video.play();
-
-      const resizeCanvas = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      };
-
-      video.addEventListener('loadeddata', resizeCanvas);
-      window.addEventListener('resize', resizeCanvas);
-
-      loading.classList.add('hidden');
-      setTimeout(() => loading.remove(), 500);
-
-      running = true;
-      statusText.textContent = 'جاهز للمسح';
-
-      processLoop();
-
-    } catch (err) {
-      loadingText.innerHTML = `
-        <div class="error-message">
-          ❌ خطأ: ${err.message}<br>
-          <small>يرجى التحقق من الاتصال بالإنترنت أو استخدام متصفح حديث</small>
-        </div>
-      `;
-      console.error('خطأ في التهيئة:', err);
+      debugInfo.innerHTML = '🎥 كاميرا جاهزة (دقة عادية)';
+    } catch(e){ 
+      debugInfo.innerHTML = '❌ خطأ في الكاميرا: ' + e.message; 
+      return; 
     }
   }
 
-  let lastLoop = 0;
-  function processLoop(now = performance.now()) {
-    if (!running) {
-      requestAnimationFrame(processLoop);
-      return;
-    }
+  function resize(){ 
+    canvas.width = video.videoWidth; 
+    canvas.height = video.videoHeight; 
+    canvas.style.width = video.clientWidth + 'px'; 
+    canvas.style.height = video.clientHeight + 'px'; 
+  }
+  
+  video.addEventListener('loadeddata', resize);
+  window.addEventListener('resize', resize);
 
-    if (now - lastLoop >= PROCESS_INTERVAL) {
-      processFrame();
-      lastLoop = now;
-    }
+  setTimeout(() => {
+    debugInfo.innerHTML = '✨ جاهز للكشف الذكي';
+  }, 1000);
+  
+  requestAnimationFrame(loop);
+}
 
-    requestAnimationFrame(processLoop);
+let lastTimeLoop = performance.now();
+async function loop(now){
+  if(!running){ requestAnimationFrame(loop); return; }
+  if(now - lastLoop >= PROCESS_INTERVAL_MS){
+    await processFrame();
+    const cur = performance.now(); 
+    fps = Math.round(1000 / Math.max(1, cur - lastTime)); 
+    lastTime = cur;
+    debugInfo.innerHTML = `🚀 ${fps} FPS | 🧠 ${labeledDescriptors.length} نماذج | 👥 ${assignedLabels.length} وجه`;
+    lastLoop = now;
+  }
+  requestAnimationFrame(loop);
+}
+
+async function processFrame(){
+  if(!modelsLoaded) return;
+  if(video.readyState < 2) return;
+  
+  // detectAllFaces with ssd mobilenet (better for small faces)
+  const detections = await faceapi.detectAllFaces(video, new faceapi.SsdMobilenetv1Options({ minConfidence: SSD_MIN_CONFIDENCE })).withFaceLandmarks().withFaceDescriptors();
+  const w = canvas.width, h = canvas.height;
+  const rects = [];
+  
+  for(const d of detections){
+    if(!d.detection || !d.descriptor || !d.landmarks) continue;
+    const box = d.detection.box;
+    const areaRatio = (box.width * box.height) / (w*h);
+    
+    if(areaRatio < MIN_BOX_AREA_RATIO) {
+      // very small but might be distant face — keep if landmarks look good
+      const left = d.landmarks.getLeftEye(), right = d.landmarks.getRightEye();
+      if(!left || !right) continue;
+    }
+    
+    // landmarks sanity: ensure eyes exist and eye distance relative to width adequate
+    const leftEye = d.landmarks.getLeftEye(), rightEye = d.landmarks.getRightEye();
+    if(!leftEye || !rightEye) continue;
+    
+    const avg = pts => { 
+      let sx=0, sy=0; 
+      for(const p of pts){ sx+=p.x; sy+=p.y } 
+      return {x:sx/pts.length, y:sy/pts.length}; 
+    };
+    
+    const aL = avg(leftEye), aR = avg(rightEye);
+    const eyeDist = Math.hypot(aL.x - aR.x, aL.y - aR.y);
+    if((eyeDist / box.width) < 0.09) continue; // too small relative to box -> reject
+    
+    // create centroid and knownLabel by matching descriptor to existing templates
+    let knownLabel = null;
+    if(faceMatcher){
+      const best = faceMatcher.findBestMatch(d.descriptor);
+      if(best && best.label !== 'unknown' && best.distance <= MAX_DESCRIPTOR_DISTANCE) {
+        knownLabel = parseInt(best.label);
+      }
+    } else if(labeledDescriptors.length){
+      // brute force match if matcher not built
+      let bestL=null, bestDist=Infinity;
+      for(const ent of labeledDescriptors){
+        for(const dd of ent.descriptors){
+          let dist=0; 
+          for(let i=0;i<dd.length;i++){ 
+            const diff = dd[i]-d.descriptor[i]; 
+            dist += diff*diff; 
+          } 
+          dist = Math.sqrt(dist);
+          if(dist < bestDist){ bestDist = dist; bestL = ent.label; }
+        }
+      }
+      if(bestDist <= MAX_DESCRIPTOR_DISTANCE) knownLabel = bestL;
+    }
+    
+    rects.push({ 
+      centroid: [Math.floor(box.x + box.width/2), Math.floor(box.y + box.height/2)], 
+      bbox: [Math.floor(box.x), Math.floor(box.y), Math.floor(box.width), Math.floor(box.height)], 
+      knownLabel, 
+      descriptor: d.descriptor 
+    });
   }
 
-  btnReset.addEventListener('click', () => {
-    if (confirm('هل تريد حذف جميع البيانات وإعادة البدء؟')) {
-      labeledDescriptors = [];
-      faceMatcher = null;
-      assignedLabels = [];
-      nextLabel = 1;
-      tracker.reset();
-      updateFacesGrid();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      mainCounter.textContent = '0';
-      statusText.textContent = 'تم إعادة التعيين - جاهز للمسح';
+  // feed tracker
+  const objects = tracker.update(rects);
 
-      mainCounter.style.animation = 'none';
-      setTimeout(() => {
-        mainCounter.style.animation = '';
-      }, 10);
+  // Enhanced drawing with modern styling
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  
+  for(const [id,obj] of objects){
+    const [x,y,wb,hb] = obj.bbox;
+    
+    // Enhanced box styling
+    if(obj.label) {
+      // Confirmed face - green glow
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 3;
+    } else {
+      // Detecting face - orange glow
+      ctx.shadowColor = '#fee140';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#fee140';
+      ctx.lineWidth = 2;
     }
-  });
-
-  btnPause.addEventListener('click', () => {
-    running = !running;
-    btnPause.innerHTML = running ? '⏸️ إيقاف' : '▶️ تشغيل';
-    btnPause.className = running ? 'btn btn-secondary' : 'btn btn-primary';
-    statusText.textContent = running ? 'جاهز للمسح' : 'متوقف مؤقتاً';
-  });
-
-  speedSlider.addEventListener('input', (e) => {
-    PROCESS_INTERVAL = parseInt(e.target.value);
-    speedValue.textContent = e.target.value;
-  });
-
-  sensitivitySlider.addEventListener('input', (e) => {
-    SCORE_THRESHOLD = parseInt(e.target.value) / 100;
-    sensitivityValue.textContent = e.target.value;
-  });
-
-  setInterval(() => {
-    if (labeledDescriptors.length > 0 && !faceMatcher) {
-      rebuildFaceMatcher();
+    
+    // Rounded rectangle
+    ctx.beginPath();
+    const radius = 8;
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + wb, y, x + wb, y + hb, radius);
+    ctx.arcTo(x + wb, y + hb, x, y + hb, radius);
+    ctx.arcTo(x, y + hb, x, y, radius);
+    ctx.arcTo(x, y, x + wb, y, radius);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Enhanced progress bar
+    const progress = Math.min(1, obj.seenCount / ASSIGN_CONSECUTIVE);
+    const barW = Math.floor(wb * 0.7); 
+    const barH = 6;
+    const bx = x + Math.floor((wb - barW)/2); 
+    const by = Math.max(15, y - 25);
+    
+    // Progress bar background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(bx, by, barW, barH);
+    
+    // Progress bar fill with gradient
+    const progressWidth = Math.floor(barW * progress);
+    if(progressWidth > 0) {
+      const gradient = ctx.createLinearGradient(bx, by, bx + progressWidth, by);
+      if(obj.label) {
+        gradient.addColorStop(0, '#4facfe');
+        gradient.addColorStop(1, '#00f2fe');
+      } else {
+        gradient.addColorStop(0, '#fa709a');
+        gradient.addColorStop(1, '#fee140');
+      }
+      ctx.fillStyle = gradient;
+      ctx.fillRect(bx, by, progressWidth, barH);
     }
-  }, 2000);
+    
+    // Label or count display
+    if(obj.label){ 
+      drawBadge(x + Math.floor(wb/2), Math.max(25, y-35), '#' + obj.label); 
+    } else { 
+      // Count display with modern styling
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(bx - 5, by - 20, barW + 10, 16);
+      ctx.fillStyle = '#fff'; 
+      ctx.font = 'bold 12px Cairo, sans-serif'; 
+      ctx.textAlign = 'center'; 
+      ctx.textBaseline = 'middle'; 
+      ctx.fillText(Math.round(obj.seenCount).toString(), bx + Math.floor(barW/2), by - 12);
+    }
 
-  init();
+    // assignment check
+    if(!obj.label && obj.seenCount >= ASSIGN_CONSECUTIVE){
+      // find nearest rect to this centroid
+      let best=null, bestD=Infinity;
+      for(const r of rects){
+        const dx = r.centroid[0] - obj.centroid[0], dy = r.centroid[1] - obj.centroid[1];
+        const d2 = Math.hypot(dx,dy);
+        if(d2 < bestD){ bestD = d2; best = r; }
+      }
+      
+      if(best){
+        if(best.knownLabel != null){
+          obj.label = best.knownLabel;
+          addDescriptorForLabel(obj.label, best.descriptor);
+        } else {
+          const newLabel = nextLabel++;
+          obj.label = newLabel;
+          assignedLabels.push(newLabel);
+          addDescriptorForLabel(newLabel, best.descriptor);
+          
+          // Enhanced feedback
+          try{ 
+            if(navigator.vibrate) navigator.vibrate([50, 30, 50]); 
+          }catch(e){}
+          
+          updateSidebar();
+        }
+      }
+    }
+  }
+
+  countText.innerText = assignedLabels.length.toString();
+}
+
+function updateSidebar(){
+  idsList.innerHTML = '';
+  for(let i = assignedLabels.length - 1; i >= 0; i--){
+    const label = assignedLabels[i];
+    const div = document.createElement('div'); 
+    div.className = 'id-item'; 
+    div.innerText = '#' + label;
+    div.style.animationDelay = (assignedLabels.length - 1 - i) * 0.1 + 's';
+    idsList.appendChild(div);
+  }
+  
+  // Animate count
+  const countElement = document.querySelector('.count-number');
+  countElement.classList.add('pulse');
+  setTimeout(() => countElement.classList.remove('pulse'), 1000);
+}
+
+// Enhanced reset with animation
+btnReset.addEventListener('click', ()=>{
+  // Add loading state
+  btnReset.innerHTML = '🔄 جاري المسح...';
+  btnReset.disabled = true;
+  
+  setTimeout(() => {
+    labeledDescriptors.length = 0; 
+    faceMatcher = null; 
+    assignedLabels.length = 0; 
+    nextLabel = 1;
+    tracker.reset(); 
+    updateSidebar(); 
+    ctx.clearRect(0,0,canvas.width,canvas.height); 
+    countText.innerText = '0';
+    
+    btnReset.innerHTML = '🔄 إعادة تعيين';
+    btnReset.disabled = false;
+    
+    // Success feedback
+    try{ 
+      if(navigator.vibrate) navigator.vibrate(200); 
+    }catch(e){}
+  }, 500);
 });
-</script>
-</body>
-</html>
+
+btnPause.addEventListener('click', ()=>{ 
+  running = !running; 
+  if(running) {
+    btnPause.innerHTML = '⏸️ إيقاف';
+    btnPause.style.background = 'var(--warning)';
+  } else {
+    btnPause.innerHTML = '▶️ استئناف';
+    btnPause.style.background = 'var(--success)';
+  }
+});
+
+// Enhanced speed slider
+speedSlider.addEventListener('input', e => { 
+  PROCESS_INTERVAL_MS = parseInt(e.target.value, 10);
+  
+  // Visual feedback
+  const percent = ((180 - e.target.value) / (180 - 40)) * 100;
+  e.target.style.background = `linear-gradient(to right, #4facfe 0%, #00f2fe ${percent}%, rgba(255,255,255,0.2) ${percent}%, rgba(255,255,255,0.2) 100%)`;
+});
+
+// Initialize slider background
+speedSlider.dispatchEvent(new Event('input'));
+
+// Enhanced addDescriptorForLabel function
+function addDescriptorForLabel(label, descriptor){
+  let entry = labeledDescriptors.find(e => e.label === label);
+  if(!entry){ 
+    entry = {label: label, descriptors: []}; 
+    labeledDescriptors.push(entry); 
+  }
+  
+  // Improved deduplication
+  for(const d of entry.descriptors){
+    let dist=0; 
+    for(let i=0;i<d.length;i++){ 
+      const diff = d[i] - descriptor[i]; 
+      dist += diff*diff; 
+    } 
+    dist = Math.sqrt(dist);
+    if(dist < 0.02) return;
+  }
+  
+  entry.descriptors.push(Array.from(descriptor));
+  if(entry.descriptors.length > MAX_TEMPLATES_PER_LABEL) {
+    entry.descriptors.shift();
+  }
+  
+  // Rebuild faceMatcher with enhanced error handling
+  try {
+    const faceapiArr = labeledDescriptors.map(ent => 
+      new faceapi.LabeledFaceDescriptors(
+        String(ent.label), 
+        ent.descriptors.map(dd => Float32Array.from(dd))
+      )
+    );
+    faceMatcher = faceapiArr.length ? new faceapi.FaceMatcher(faceapiArr, MAX_DESCRIPTOR_DISTANCE) : null;
+  } catch(error) {
+    console.warn('خطأ في بناء FaceMatcher:', error);
+    faceMatcher = null;
+  }
+}
+
+// Enhanced initialization
+init().catch(error => {
+  console.error('خطأ في التهيئة:', error);
+  debugInfo.innerHTML = '❌ خطأ في التهيئة: ' + error.message;
+  debugInfo.style.background = 'rgba(245, 87, 108, 0.9)';
+});
