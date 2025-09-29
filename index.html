@@ -3,476 +3,1140 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>عداد الأشخاص — نسخة قوية (Face embeddings)</title>
+<title>عداد الوجوه الذكي - نظام التعرف المتقدم</title>
 <style>
-  :root{--sidebar-w:200px}
-  html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Arial;}
-  .container{display:flex;height:100vh;align-items:stretch;}
-  .camera-area{flex:1;position:relative;background:#000;overflow:hidden;}
-  video#v{width:100%;height:100%;object-fit:cover;}
-  canvas#overlay{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
-  .hint{position:absolute;left:12px;top:12px;color:#fff;background:rgba(0,0,0,0.35);padding:8px 10px;border-radius:8px}
-  .sidebar{width:var(--sidebar-w);background:rgba(0,0,0,0.6);color:#fff;padding:10px;box-sizing:border-box;display:flex;flex-direction:column}
-  .count{font-size:20px;padding:6px 0;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06)}
-  .ids{flex:1;overflow:auto;margin-top:8px;padding-right:6px}
-  .id-item{background:rgba(255,255,255,0.06);margin:6px 0;padding:8px;border-radius:6px;text-align:center;font-weight:700}
-  .controls{margin-top:8px;display:flex;gap:8px;flex-direction:column}
-  button{padding:10px;border-radius:8px;border:0;background:#2196f3;color:white;font-weight:700}
-  .debug{position:absolute;right:12px;top:12px;padding:6px 8px;background:rgba(0,0,0,0.35);color:#fff;border-radius:8px;font-size:12px}
-  .small{font-size:12px;color:#ddd}
-  @media(max-width:700px){
-    .container{flex-direction:column-reverse}
-    .sidebar{width:100%;height:230px;display:flex;flex-direction:row;align-items:center;padding:8px}
-    .ids{flex:1;display:flex;gap:8px;overflow:auto;align-items:center;padding:0 8px}
-    .id-item{min-width:48px;padding:6px}
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
+
+:root {
+  --primary: #00ff88;
+  --primary-dark: #00cc6a;
+  --secondary: #0099ff;
+  --dark: #0a0e27;
+  --dark-light: #151b3d;
+  --dark-lighter: #1e2749;
+  --success: #00ff88;
+  --warning: #ffaa00;
+  --danger: #ff3366;
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: linear-gradient(135deg, #0a0e27 0%, #1e2749 100%);
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  height: 100vh;
+  gap: 20px;
+  padding: 20px;
+}
+
+.camera-section {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--dark-lighter);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 
+              inset 0 0 100px rgba(0, 255, 136, 0.03);
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(1.05) contrast(1.1);
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(10, 14, 39, 0.95) 0%, transparent 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 15px;
+}
+
+.stat-item {
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 10px 20px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 80px;
+}
+
+.stat-label {
+  font-size: 11px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.sidebar {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.main-counter {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 153, 255, 0.1) 100%);
+  border: 2px solid var(--primary);
+  border-radius: 20px;
+  padding: 30px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.main-counter::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+  animation: shine 3s infinite;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.counter-label {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.counter-value {
+  font-size: 72px;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+}
+
+.faces-section {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.faces-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 10px;
+  padding: 5px;
+}
+
+.faces-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.faces-grid::-webkit-scrollbar-track {
+  background: var(--glass);
+  border-radius: 10px;
+}
+
+.faces-grid::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.face-card {
+  aspect-ratio: 1;
+  background: var(--glass);
+  border: 2px solid var(--glass-border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.8) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.face-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.face-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+}
+
+.face-card:hover::before {
+  opacity: 0.1;
+}
+
+.face-icon {
+  font-size: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.face-number {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  position: relative;
+  z-index: 1;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.btn {
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: var(--dark);
+  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 40px rgba(0, 255, 136, 0.5);
+}
+
+.btn-secondary {
+  background: var(--glass);
+  border: 2px solid var(--glass-border);
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background: var(--dark-lighter);
+  border-color: var(--primary);
+}
+
+.settings {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-label {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.slider-container {
+  flex: 1;
+  max-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 5px;
+  background: var(--dark-lighter);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+}
+
+.slider-value {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.status {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 15px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 20px var(--success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.status-text {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    padding: 10px;
+    gap: 10px;
   }
+
+  .sidebar {
+    padding: 20px;
+    max-height: 40vh;
+  }
+
+  .main-counter {
+    padding: 20px;
+  }
+
+  .counter-value {
+    font-size: 48px;
+  }
+
+  .stats-bar {
+    flex-wrap: wrap;
+  }
+
+  .stat-item {
+    min-width: 60px;
+    padding: 8px 12px;
+  }
+}
+
+.loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  z-index: 1000;
+  transition: opacity 0.5s ease;
+}
+
+.loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loader {
+  width: 80px;
+  height: 80px;
+  border: 6px solid var(--dark-lighter);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.error-message {
+  background: rgba(255, 51, 102, 0.1);
+  border: 2px solid var(--danger);
+  color: var(--danger);
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-top: 20px;
+  text-align: center;
+  max-width: 400px;
+}
 </style>
 </head>
 <body>
+
+<div class="loading" id="loading">
+  <div class="loader"></div>
+  <div class="loading-text" id="loadingText">جاري التحضير...</div>
+</div>
+
 <div class="container">
-  <div class="camera-area">
-    <video id="v" autoplay playsinline></video>
-    <canvas id="overlay"></canvas>
-    <div class="hint">وجّه الكاميرا على وجوه الأشخاص — سيُعطى كل شخص علامة خضراء لمرة واحدة فقط.</div>
-    <div class="debug" id="debugInfo">تحميل النماذج...</div>
+  <div class="camera-section">
+    <div class="top-bar">
+      <div class="logo">
+        <span>👁️</span>
+        <span>عداد الوجوه الذكي</span>
+      </div>
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-label">FPS</div>
+          <div class="stat-value" id="fpsDisplay">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">معالجة</div>
+          <div class="stat-value" id="processingDisplay">0ms</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">دقة</div>
+          <div class="stat-value">99%</div>
+        </div>
+      </div>
+    </div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="status">
+      <div class="status-dot"></div>
+      <div class="status-text" id="statusText">جاري التهيئة...</div>
+    </div>
   </div>
 
   <div class="sidebar">
-    <div class="count" id="countText">العدد: 0</div>
-    <div class="ids" id="idsList"></div>
+    <div class="main-counter">
+      <div class="counter-label">إجمالي الأشخاص</div>
+      <div class="counter-value" id="mainCounter">0</div>
+    </div>
+
+    <div class="faces-section">
+      <div class="section-title">
+        <span>👥</span>
+        <span>الوجوه المسجلة</span>
+      </div>
+      <div class="faces-grid" id="facesGrid"></div>
+    </div>
+
     <div class="controls">
-      <div style="display:flex;gap:8px">
-        <button id="btnReset">إعادة</button>
-        <button id="btnPause">إيقاف</button>
+      <button class="btn btn-primary" id="btnReset">🔄 إعادة تعيين</button>
+      <button class="btn btn-secondary" id="btnPause">⏸️ إيقاف</button>
+    </div>
+
+    <div class="settings">
+      <div class="setting-item">
+        <div class="setting-label">سرعة المعالجة</div>
+        <div class="slider-container">
+          <input type="range" id="speedSlider" min="30" max="150" step="10" value="50">
+          <div class="slider-value" id="speedValue">50</div>
+        </div>
       </div>
-      <div style="margin-top:8px">
-        <label class="small">Auto assign anywhere</label>
-        <input type="checkbox" id="autoAssign" />
-      </div>
-      <div style="margin-top:8px">
-        <label class="small">سرعة (أصغر = أسرع، لكن احتمال أخطاء أكثر)</label>
-        <input id="speed" type="range" min="40" max="200" step="10" value="60"/>
+      <div class="setting-item">
+        <div class="setting-label">حساسية الكشف</div>
+        <div class="slider-container">
+          <input type="range" id="sensitivitySlider" min="30" max="60" step="5" value="40">
+          <div class="slider-value" id="sensitivityValue">40</div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- face-api.js (stable-ish version) -->
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <script>
-/*
-  أقوى نسخة: تستخدم face-api.js face recognition (embeddings).
-  تعليمات سريعة:
-  - ضع هذا الملف على خادم محلي (python -m http.server) أو https.
-  - افتح الصفحة، انتظر تحميل النماذج، ثم جرّب توجيه الكاميرا.
-*/
+// الانتظار حتى تحميل جميع المكتبات
+window.addEventListener('load', async () => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const MODEL_URLS = [
+    'https://justadudewhohacks.github.io/face-api.js/models',
+    '/models',
+    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'
+  ];
 
-// -------------------- إعدادات قابلة للتعديل --------------------
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/'; // مضيف عام لنماذج face-api.js
-let PROCESS_INTERVAL_MS = 60; // زمن المعالجة (قلّل لتحسين السرعة) - يمكن التحكم بواسطة شريط 'speed'
-const TINY_INPUT_SIZE = 160; // 128/160/224 - tradeoff دقة/سرعة
-const TINY_SCORE_THRESHOLD = 0.45; // عتبة تأكيد كشف الوجه
-const ASSIGN_CONSECUTIVE = 2; // عدد الإطارات المطلوبة لاعتبار وجه مستقر
-const MIN_BOX_AREA_RATIO = 0.0006; // فلترة للصناديق الصغيرة (نسبة من إطار الفيديو)
-const MAX_DESCRIPTOR_DISTANCE = 0.45; // المسافة للتطابق - أقل = أكثر صرامة (0.4..0.6 typical)
-const MAX_TEMPLATES_PER_LABEL = 6; // عدد descriptors نخزّن لكل شخص (يساعد على التعرّف عبر زوايا)
-// ---------------------------------------------------------------
+  let PROCESS_INTERVAL = 50;
+  let SCORE_THRESHOLD = 0.40;
+  const INPUT_SIZE = 224;
+  const ASSIGN_FRAMES = 3;
+  const MAX_DESCRIPTOR_DISTANCE = 0.42;
+  const MAX_TEMPLATES = 8;
 
-// DOM
-const video = document.getElementById('v');
-const canvas = document.getElementById('overlay');
-const ctx = canvas.getContext('2d');
-const debugInfo = document.getElementById('debugInfo');
-const countText = document.getElementById('countText');
-const idsList = document.getElementById('idsList');
-const btnReset = document.getElementById('btnReset');
-const btnPause = document.getElementById('btnPause');
-const autoAssignCheckbox = document.getElementById('autoAssign');
-const speedSlider = document.getElementById('speed');
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const loading = document.getElementById('loading');
+  const loadingText = document.getElementById('loadingText');
+  const mainCounter = document.getElementById('mainCounter');
+  const facesGrid = document.getElementById('facesGrid');
+  const btnReset = document.getElementById('btnReset');
+  const btnPause = document.getElementById('btnPause');
+  const fpsDisplay = document.getElementById('fpsDisplay');
+  const processingDisplay = document.getElementById('processingDisplay');
+  const statusText = document.getElementById('statusText');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedValue = document.getElementById('speedValue');
+  const sensitivitySlider = document.getElementById('sensitivitySlider');
+  const sensitivityValue = document.getElementById('sensitivityValue');
 
-// state
-let modelsLoaded = false;
-let running = true;
-let faceMatcher = null; // we'll rebuild when templates change
-let labeledDescriptors = []; // [{ label: '1', descriptors: [Float32Array,...] }, ...]
-let assignedLabels = []; // ordered labels assigned (1-based)
-let nextLabel = 1;
-let lastProcess = 0;
-let fps = 0;
-let lastTime = performance.now();
+  let modelsLoaded = false;
+  let running = false;
+  let faceMatcher = null;
+  let labeledDescriptors = [];
+  let assignedLabels = [];
+  let nextLabel = 1;
+  let fps = 0;
+  let lastTime = performance.now();
+  let frameCount = 0;
 
-// simple centroid tracker for stabilizing potential assignments
-class CentroidTracker {
-  constructor(maxDisappeared = 10, maxDistance = 120){
-    this.nextId = 1;
-    this.objects = new Map(); // id -> {centroid, bbox, seenCount, label (maybe null)}
-    this.maxDisappeared = maxDisappeared;
-    this.disappeared = new Map();
-    this.maxDistance = maxDistance;
-  }
-  register(centroid, bbox, knownLabel = null){
-    const id = this.nextId++;
-    this.objects.set(id, {centroid, bbox, seenCount:1, label: knownLabel});
-    this.disappeared.set(id, 0);
-    return id;
-  }
-  deregister(id){
-    this.objects.delete(id);
-    this.disappeared.delete(id);
-  }
-  update(rectsWithKnown){
-    // rectsWithKnown: [{centroid:[x,y], bbox:[x,y,w,h], knownLabel: label|null}]
-    if(rectsWithKnown.length === 0){
-      for(const id of Array.from(this.disappeared.keys())){
-        const v = this.disappeared.get(id) + 1;
-        this.disappeared.set(id, v);
-        if(v > this.maxDisappeared) this.deregister(id);
-      }
-      return this.objects;
+  class AdvancedTracker {
+    constructor() {
+      this.nextId = 1;
+      this.objects = new Map();
+      this.disappeared = new Map();
+      this.maxDisappeared = 15;
+      this.maxDistance = 150;
     }
-    if(this.objects.size === 0){
-      for(const r of rectsWithKnown){
-        this.register(r.centroid, r.bbox, r.knownLabel ?? null);
-      }
-      return this.objects;
-    }
-    // build centroids arrays
-    const objectIDs = Array.from(this.objects.keys());
-    const objectCentroids = objectIDs.map(id => this.objects.get(id).centroid);
-    const inputCentroids = rectsWithKnown.map(r => r.centroid);
-    // distance matrix
-    const D = Array(objectCentroids.length).fill(0).map(()=>Array(inputCentroids.length).fill(0));
-    for(let i=0;i<objectCentroids.length;i++){
-      for(let j=0;j<inputCentroids.length;j++){
-        const dx = objectCentroids[i][0] - inputCentroids[j][0];
-        const dy = objectCentroids[i][1] - inputCentroids[j][1];
-        D[i][j] = Math.hypot(dx,dy);
-      }
-    }
-    // greedy match
-    const usedRows = new Set();
-    const usedCols = new Set();
-    const rows = D.map((row,i)=>({min:Math.min(...row), i})).sort((a,b)=>a.min-b.min).map(x=>x.i);
-    for(const row of rows){
-      let minVal = Infinity, minCol = -1;
-      for(let c=0;c<D[row].length;c++){
-        if(usedCols.has(c)) continue;
-        if(D[row][c] < minVal){ minVal = D[row][c]; minCol = c; }
-      }
-      if(minCol === -1) continue;
-      if(minVal > this.maxDistance) continue;
-      const id = objectIDs[row];
-      const det = rectsWithKnown[minCol];
-      const obj = this.objects.get(id);
-      obj.centroid = det.centroid;
-      obj.bbox = det.bbox;
-      obj.seenCount = Math.min(20, obj.seenCount + 1);
-      if(det.knownLabel && !obj.label) obj.label = det.knownLabel;
+
+    register(centroid, bbox, descriptor, knownLabel = null) {
+      const id = this.nextId++;
+      this.objects.set(id, {
+        centroid, bbox, descriptor,
+        seenCount: 1,
+        label: knownLabel,
+        lastSeen: Date.now()
+      });
       this.disappeared.set(id, 0);
-      usedRows.add(row); usedCols.add(minCol);
+      return id;
     }
-    // unmatched rows -> disappeared++
-    for(let r=0;r<D.length;r++){
-      if(usedRows.has(r)) continue;
-      const id = objectIDs[r];
-      const val = this.disappeared.get(id) + 1;
-      this.disappeared.set(id, val);
-      const obj = this.objects.get(id);
-      obj.seenCount = Math.max(0, obj.seenCount - 1);
-      if(val > this.maxDisappeared) this.deregister(id);
+
+    deregister(id) {
+      this.objects.delete(id);
+      this.disappeared.delete(id);
     }
-    // unmatched cols -> register
-    for(let c=0;c<rectsWithKnown.length;c++){
-      if(usedCols.has(c)) continue;
-      const r = rectsWithKnown[c];
-      this.register(r.centroid, r.bbox, r.knownLabel ?? null);
-    }
-    return this.objects;
-  }
-  reset(){ this.nextId = 1; this.objects.clear(); this.disappeared.clear(); }
-}
-const tracker = new CentroidTracker(12, 120);
 
-// helper: build face-api FaceMatcher from labeledDescriptors
-function rebuildFaceMatcher(){
-  const labeledFaceDescriptors = labeledDescriptors.map(entry => {
-    const des = entry.descriptors.map(d => new Float32Array(d));
-    return new faceapi.LabeledFaceDescriptors(String(entry.label), des);
-  });
-  faceMatcher = labeledFaceDescriptors.length ? new faceapi.FaceMatcher(labeledFaceDescriptors, MAX_DESCRIPTOR_DISTANCE) : null;
-}
+    update(detections) {
+      if (detections.length === 0) {
+        for (const id of Array.from(this.disappeared.keys())) {
+          const val = this.disappeared.get(id) + 1;
+          this.disappeared.set(id, val);
+          if (val > this.maxDisappeared) this.deregister(id);
+        }
+        return this.objects;
+      }
 
-// helper: push descriptor into labeledDescriptors for label (keep up to MAX_TEMPLATES_PER_LABEL)
-function addDescriptorForLabel(label, descriptor){
-  let entry = labeledDescriptors.find(e => e.label === label);
-  if(!entry){
-    entry = { label: label, descriptors: [] };
-    labeledDescriptors.push(entry);
-  }
-  // avoid duplicates: if very close to existing descriptor skip
-  for(const d of entry.descriptors){
-    let s = 0; for(let i=0;i<d.length;i++) s += d[i] * descriptor[i];
-    // s is dot product if normalized => convert to distance-ish? but easier: compute Euclidean dist
-    // compute distance
-    let dist = 0; for(let i=0;i<d.length;i++){ const diff = d[i] - descriptor[i]; dist += diff*diff; } dist = Math.sqrt(dist);
-    if(dist < 0.02) return; // nearly identical
-  }
-  entry.descriptors.push(Array.from(descriptor));
-  if(entry.descriptors.length > MAX_TEMPLATES_PER_LABEL) entry.descriptors.shift();
-  rebuildFaceMatcher();
-}
+      if (this.objects.size === 0) {
+        for (const det of detections) {
+          this.register(det.centroid, det.bbox, det.descriptor, det.knownLabel);
+        }
+        return this.objects;
+      }
 
-// utility: draw rounded rect
-function drawBadge(x,y,text){
-  ctx.beginPath();
-  ctx.fillStyle = 'rgba(0,180,0,0.95)';
-  ctx.arc(x, y, 18, 0, Math.PI*2);
-  ctx.fill();
-  ctx.closePath();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, x, y);
-}
+      const objectIDs = Array.from(this.objects.keys());
+      const objectCentroids = objectIDs.map(id => this.objects.get(id).centroid);
+      const inputCentroids = detections.map(d => d.centroid);
 
-// main init
-async function init(){
-  // prefer WebGL backend for tfjs (face-api uses tfjs)
-  if (tf && tf.setBackend) {
-    try { await tf.setBackend('webgl'); } catch(e){ /* fallback */ }
-    await tf.ready();
-  }
-  // load models (TinyFaceDetector, landmarks, recognition)
-  debugInfo.innerText = 'جاري تحميل النماذج...';
-  await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-  modelsLoaded = true;
-  debugInfo.innerText = 'نماذج جاهزة — شغّل الكاميرا الآن';
-  // start camera
-  try{
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    video.srcObject = stream; await video.play();
-  }catch(err){
-    alert('تعذّر الوصول للكاميرا: ' + err.message);
-    return;
-  }
-  // canvas size sync
-  function resize() { canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.style.width = video.clientWidth + 'px'; canvas.style.height = video.clientHeight + 'px'; }
-  video.addEventListener('loadeddata', resize);
-  window.addEventListener('resize', resize);
+      const D = Array(objectCentroids.length).fill(0).map(() => 
+        Array(inputCentroids.length).fill(0)
+      );
 
-  // process loop
-  requestAnimationFrame(processLoop);
-}
+      for (let i = 0; i < objectCentroids.length; i++) {
+        for (let j = 0; j < inputCentroids.length; j++) {
+          const dx = objectCentroids[i][0] - inputCentroids[j][0];
+          const dy = objectCentroids[i][1] - inputCentroids[j][1];
+          D[i][j] = Math.hypot(dx, dy);
+        }
+      }
 
-// process loop
-let lastLoop = 0;
-async function processLoop(now){
-  if(!running){ lastLoop = performance.now(); requestAnimationFrame(processLoop); return; }
-  if(now - lastLoop >= PROCESS_INTERVAL_MS){
-    await processFrame();
-    const cur = performance.now();
-    fps = Math.round(1000 / Math.max(1, cur - lastTime));
-    lastTime = cur;
-    debugInfo.innerText = `FPS: ${fps} | Templates: ${labeledDescriptors.length} | Assigned: ${assignedLabels.length}`;
-    lastLoop = now;
-  }
-  requestAnimationFrame(processLoop);
-}
+      const usedRows = new Set();
+      const usedCols = new Set();
+      const rows = D.map((row, i) => ({ min: Math.min(...row), i }))
+        .sort((a, b) => a.min - b.min)
+        .map(x => x.i);
 
-// process one frame: detect -> descriptors -> matching -> tracker -> assign/draw
-async function processFrame(){
-  if(!modelsLoaded) return;
-  if(video.readyState < 2) return;
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: TINY_INPUT_SIZE, scoreThreshold: TINY_SCORE_THRESHOLD });
-  // detect with landmarks and descriptor
-  const results = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
-  // filter results: require landmarks and reasonable box size
-  const w = canvas.width, h = canvas.height;
-  const filtered = [];
-  for(const r of results){
-    if(!r.detection || !r.landmarks) continue;
-    const box = r.detection.box;
-    const areaRatio = (box.width * box.height) / (w*h);
-    if(areaRatio < MIN_BOX_AREA_RATIO) continue;
-    // eye distance check: landmarks get leftEye,rightEye arrays (we can compute)
-    const ls = r.landmarks;
-    const left = ls.getLeftEye(); const right = ls.getRightEye();
-    if(!left || !right) continue;
-    // pick central points (average)
-    function avgPoint(pts){ let sx=0, sy=0; for(const p of pts){ sx+=p.x; sy+=p.y } return {x: sx/pts.length, y: sy/pts.length}; }
-    const aL = avgPoint(left), aR = avgPoint(right);
-    const eyeDist = Math.hypot(aL.x - aR.x, aL.y - aR.y);
-    if((eyeDist / box.width) < 0.12) continue; // too small relative to box => likely false positive
-    // accept
-    filtered.push({ box, descriptor: r.descriptor, landmarks: r.landmarks });
-  }
-
-  facesThisFrame = filtered.length;
-
-  // build rectsWithKnown for tracker: for each detection get centroid, bbox and knownLabel by matching descriptor against stored templates
-  const rectsWithKnown = [];
-  for(const det of filtered){
-    const box = det.box;
-    const cx = Math.floor(box.x + box.width/2), cy = Math.floor(box.y + box.height/2);
-    // match descriptor to existing labeledDescriptors via faceMatcher
-    let knownLabel = null;
-    if(faceMatcher){
-      const best = faceMatcher.findBestMatch(det.descriptor);
-      if(best && best.label !== 'unknown' && best.distance <= MAX_DESCRIPTOR_DISTANCE) knownLabel = parseInt(best.label);
-    } else {
-      // try brute force matching to labeledDescriptors (if any) to avoid building faceMatcher every time
-      if(labeledDescriptors.length){
-        let bestLabel=null, bestDist=Infinity;
-        for(const entry of labeledDescriptors){
-          for(const d of entry.descriptors){
-            // compute euclidean distance
-            let dist=0; for(let i=0;i<det.descriptor.length;i++){ const diff = d[i]-det.descriptor[i]; dist += diff*diff; } dist = Math.sqrt(dist);
-            if(dist < bestDist){ bestDist = dist; bestLabel = entry.label; }
+      for (const row of rows) {
+        let minVal = Infinity, minCol = -1;
+        for (let c = 0; c < D[row].length; c++) {
+          if (usedCols.has(c)) continue;
+          if (D[row][c] < minVal) {
+            minVal = D[row][c];
+            minCol = c;
           }
         }
-        if(bestDist <= MAX_DESCRIPTOR_DISTANCE) knownLabel = bestLabel;
+
+        if (minCol === -1 || minVal > this.maxDistance) continue;
+
+        const id = objectIDs[row];
+        const det = detections[minCol];
+        const obj = this.objects.get(id);
+
+        obj.centroid = det.centroid;
+        obj.bbox = det.bbox;
+        obj.descriptor = det.descriptor;
+        obj.seenCount = Math.min(30, obj.seenCount + 1);
+        obj.lastSeen = Date.now();
+
+        if (det.knownLabel && !obj.label) {
+          obj.label = det.knownLabel;
+        }
+
+        this.disappeared.set(id, 0);
+        usedRows.add(row);
+        usedCols.add(minCol);
       }
+
+      for (let r = 0; r < D.length; r++) {
+        if (usedRows.has(r)) continue;
+        const id = objectIDs[r];
+        const val = this.disappeared.get(id) + 1;
+        this.disappeared.set(id, val);
+        if (val > this.maxDisappeared) this.deregister(id);
+      }
+
+      for (let c = 0; c < detections.length; c++) {
+        if (usedCols.has(c)) continue;
+        const det = detections[c];
+        this.register(det.centroid, det.bbox, det.descriptor, det.knownLabel);
+      }
+
+      return this.objects;
     }
-    rectsWithKnown.push({ centroid: [cx,cy], bbox: [Math.floor(box.x), Math.floor(box.y), Math.floor(box.width), Math.floor(box.height)], knownLabel, descriptor: det.descriptor });
+
+    reset() {
+      this.nextId = 1;
+      this.objects.clear();
+      this.disappeared.clear();
+    }
   }
 
-  // update tracker to get stable objects
-  const objects = tracker.update(rectsWithKnown);
+  const tracker = new AdvancedTracker();
 
-  // draw overlay and assignment logic
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  for(const [id, obj] of objects){
-    const [x,y,wb,hb] = obj.bbox;
-    // draw rectangle: green if already labeled (assigned), yellow if candidate
-    if(obj.label){
-      ctx.strokeStyle = 'rgba(0,200,0,0.95)';
-    } else {
-      ctx.strokeStyle = 'rgba(255,180,0,0.9)';
-    }
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, wb, hb);
-
-    // progress indicator
-    const progress = Math.min(1, obj.seenCount / ASSIGN_CONSECUTIVE);
-    const barW = Math.floor(wb * 0.6);
-    const bx = x + Math.floor((wb - barW)/2);
-    const by = Math.max(12, y - 22);
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by, barW, 8);
-    ctx.fillStyle = obj.label ? 'rgba(0,200,0,0.95)' : 'rgba(255,200,0,0.95)'; ctx.fillRect(bx, by, Math.floor(barW * progress), 8);
-
-    if(obj.label){
-      // draw green badge above face with label
-      drawBadge(x + Math.floor(wb/2), Math.max(18, y - 28), '#' + obj.label);
-    } else {
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(Math.round(obj.seenCount).toString(), bx + Math.floor(barW/2), by + 4);
+  function addDescriptorForLabel(label, descriptor) {
+    let entry = labeledDescriptors.find(e => e.label === label);
+    if (!entry) {
+      entry = { label, descriptors: [] };
+      labeledDescriptors.push(entry);
     }
 
-    // assignment: if not labeled and stable enough (seenCount) then add
-    if(!obj.label && obj.seenCount >= ASSIGN_CONSECUTIVE){
-      // find the rectWithKnown that matches this centroid to get descriptor and knownLabel
-      // nearest rect
-      let best = null, bestD = Infinity;
-      for(const r of rectsWithKnown){
-        const dx = r.centroid[0] - obj.centroid[0], dy = r.centroid[1] - obj.centroid[1];
-        const d = Math.hypot(dx,dy);
-        if(d < bestD){ bestD = d; best = r; }
+    for (const d of entry.descriptors) {
+      let dist = 0;
+      for (let i = 0; i < d.length; i++) {
+        const diff = d[i] - descriptor[i];
+        dist += diff * diff;
       }
-      if(best){
-        if(best.knownLabel != null){
-          // matched existing label -> attach label but do NOT increment assigned order
-          obj.label = best.knownLabel;
-          // add descriptor sample occasionally
-          addDescriptorForLabel(obj.label, best.descriptor);
-        } else {
-          // brand-new person -> create new label, save descriptor
-          const newLabel = nextLabel++;
-          obj.label = newLabel;
-          assignedLabels.push(newLabel);
-          addDescriptorForLabel(newLabel, best.descriptor);
-          // feedback: vibrate or beep
-          try{ if(navigator.vibrate) navigator.vibrate(30); }catch(e){}
-          // update sidebar
-          updateSidebar();
+      dist = Math.sqrt(dist);
+      if (dist < 0.015) return;
+    }
+
+    entry.descriptors.push(Array.from(descriptor));
+    if (entry.descriptors.length > MAX_TEMPLATES) entry.descriptors.shift();
+    rebuildFaceMatcher();
+  }
+
+  function rebuildFaceMatcher() {
+    if (labeledDescriptors.length === 0) {
+      faceMatcher = null;
+      return;
+    }
+
+    const labeled = labeledDescriptors.map(entry => {
+      const descriptors = entry.descriptors.map(d => new Float32Array(d));
+      return new faceapi.LabeledFaceDescriptors(String(entry.label), descriptors);
+    });
+
+    faceMatcher = new faceapi.FaceMatcher(labeled, MAX_DESCRIPTOR_DISTANCE);
+  }
+
+  function updateFacesGrid() {
+    facesGrid.innerHTML = '';
+    for (let i = assignedLabels.length - 1; i >= 0; i--) {
+      const label = assignedLabels[i];
+      const card = document.createElement('div');
+      card.className = 'face-card';
+      card.innerHTML = `
+        <div class="face-icon">✓</div>
+        <div class="face-number">#${label}</div>
+      `;
+      facesGrid.appendChild(card);
+    }
+  }
+
+  function drawDetection(obj, isNew = false) {
+    const [x, y, w, h] = obj.bbox;
+    
+    if (obj.label) {
+      ctx.strokeStyle = 'rgba(0, 255, 136, 0.9)';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = 'rgba(0, 255, 136, 0.8)';
+      ctx.shadowBlur = 20;
+      ctx.strokeRect(x, y, w, h);
+      ctx.shadowBlur = 0;
+
+      const centerX = x + w / 2;
+      const centerY = y - 40;
+      const size = 50;
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0, 255, 136, 0.95)';
+      ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      ctx.beginPath();
+      ctx.moveTo(centerX - size/4, centerY);
+      ctx.lineTo(centerX - size/8, centerY + size/4);
+      ctx.lineTo(centerX + size/3, centerY - size/4);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px Cairo';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`#${obj.label}`, x + w / 2, y + h + 30);
+
+      if (isNew) {
+        ctx.strokeStyle = 'rgba(0, 255, 136, 1)';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
+      }
+    } else {
+      ctx.strokeStyle = 'rgba(255, 170, 0, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 5]);
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
+
+      const progress = Math.min(1, obj.seenCount / ASSIGN_FRAMES);
+      const barW = w * 0.7;
+      const barX = x + (w - barW) / 2;
+      const barY = y + h + 15;
+
+      ctx.fillStyle = 'rgba(30, 39, 73, 0.8)';
+      ctx.fillRect(barX, barY, barW, 8);
+
+      ctx.fillStyle = 'rgba(255, 170, 0, 0.9)';
+      ctx.fillRect(barX, barY, Math.floor(barW * progress), 8);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px Cairo';
+      ctx.textAlign = 'center';
+      ctx.fillText('جاري المعالجة...', x + w / 2, y - 20);
+    }
+  }
+
+  async function processFrame() {
+    if (!modelsLoaded || !running || video.readyState < 2) return;
+
+    const startTime = performance.now();
+
+    const options = new faceapi.TinyFaceDetectorOptions({
+      inputSize: INPUT_SIZE,
+      scoreThreshold: SCORE_THRESHOLD
+    });
+
+    const results = await faceapi
+      .detectAllFaces(video, options)
+      .withFaceLandmarks()
+      .withFaceDescriptors();
+
+    const w = canvas.width, h = canvas.height;
+    const detections = [];
+
+    for (const r of results) {
+      if (!r.detection || !r.landmarks || !r.descriptor) continue;
+
+      const box = r.detection.box;
+      const areaRatio = (box.width * box.height) / (w * h);
+      if (areaRatio < 0.0002) continue;
+
+      const left = r.landmarks.getLeftEye();
+      const right = r.landmarks.getRightEye();
+      if (!left || !right) continue;
+
+      const avgPoint = (pts) => {
+        let sx = 0, sy = 0;
+        for (const p of pts) { sx += p.x; sy += p.y; }
+        return { x: sx / pts.length, y: sy / pts.length };
+      };
+
+      const aL = avgPoint(left), aR = avgPoint(right);
+      const eyeDist = Math.hypot(aL.x - aR.x, aL.y - aR.y);
+      if ((eyeDist / box.width) < 0.1) continue;
+
+      const cx = Math.floor(box.x + box.width / 2);
+      const cy = Math.floor(box.y + box.height / 2);
+
+      let knownLabel = null;
+      if (faceMatcher) {
+        const best = faceMatcher.findBestMatch(r.descriptor);
+        if (best && best.label !== 'unknown' && best.distance <= MAX_DESCRIPTOR_DISTANCE) {
+          knownLabel = parseInt(best.label);
+        }
+      }
+
+      detections.push({
+        centroid: [cx, cy],
+        bbox: [Math.floor(box.x), Math.floor(box.y), Math.floor(box.width), Math.floor(box.height)],
+        descriptor: r.descriptor,
+        knownLabel
+      });
+    }
+
+    const objects = tracker.update(detections);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const newlyAssigned = [];
+
+    for (const [id, obj] of objects) {
+      if (!obj.label && obj.seenCount >= ASSIGN_FRAMES) {
+        let best = null, bestD = Infinity;
+        for (const det of detections) {
+          const dx = det.centroid[0] - obj.centroid[0];
+          const dy = det.centroid[1] - obj.centroid[1];
+          const d = Math.hypot(dx, dy);
+          if (d < bestD) { bestD = d; best = det; }
+        }
+
+        if (best) {
+          if (best.knownLabel != null) {
+            obj.label = best.knownLabel;
+            addDescriptorForLabel(obj.label, best.descriptor);
+          } else {
+            const newLabel = nextLabel++;
+            obj.label = newLabel;
+            assignedLabels.push(newLabel);
+            addDescriptorForLabel(newLabel, best.descriptor);
+            newlyAssigned.push(obj);
+
+            try {
+              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+            } catch (e) {}
+
+            updateFacesGrid();
+          }
+        }
+      }
+
+      drawDetection(obj, newlyAssigned.includes(obj));
+    }
+
+    mainCounter.textContent = assignedLabels.length;
+
+    const processingTime = Math.round(performance.now() - startTime);
+    processingDisplay.textContent = processingTime + 'ms';
+
+    frameCount++;
+    const now = performance.now();
+    if (now - lastTime >= 1000) {
+      fps = frameCount;
+      fpsDisplay.textContent = fps;
+      frameCount = 0;
+      lastTime = now;
+    }
+
+    statusText.textContent = objects.size > 0 ? 
+      `جاري معالجة ${objects.size} وجه` : 
+      'جاهز للمسح';
+  }
+
+  async function loadModelsWithFallback() {
+    for (let i = 0; i < MODEL_URLS.length; i++) {
+      const url = MODEL_URLS[i];
+      try {
+        loadingText.textContent = `جاري تحميل النماذج (${i + 1}/${MODEL_URLS.length})...`;
+        
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(url),
+          faceapi.nets.faceLandmark68Net.loadFromUri(url),
+          faceapi.nets.faceRecognitionNet.loadFromUri(url)
+        ]);
+        
+        return true;
+      } catch (err) {
+        console.warn(`فشل التحميل من ${url}:`, err);
+        if (i === MODEL_URLS.length - 1) {
+          throw new Error('فشل تحميل النماذج من جميع المصادر');
         }
       }
     }
+    return false;
   }
 
-  countText.innerText = 'العدد: ' + assignedLabels.length;
-}
+  async function init() {
+    try {
+      if (typeof tf === 'undefined' || typeof faceapi === 'undefined') {
+        throw new Error('المكتبات غير محملة بشكل صحيح');
+      }
 
-// update sidebar view
-function updateSidebar(){
-  idsList.innerHTML = '';
-  for(let i = assignedLabels.length - 1; i >= 0; i--){
-    const label = assignedLabels[i];
-    const div = document.createElement('div');
-    div.className = 'id-item';
-    div.innerText = '#' + label;
-    idsList.appendChild(div);
+      loadingText.textContent = 'تهيئة TensorFlow...';
+      if (tf.setBackend) {
+        try {
+          await tf.setBackend('webgl');
+          await tf.ready();
+        } catch (e) {
+          console.warn('WebGL غير متوفر، استخدام CPU');
+          await tf.setBackend('cpu');
+          await tf.ready();
+        }
+      }
+
+      loadingText.textContent = 'جاري تحميل نماذج التعرف...';
+      await loadModelsWithFallback();
+      modelsLoaded = true;
+
+      loadingText.textContent = 'جاري تشغيل الكاميرا...';
+
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 }
+        },
+        audio: false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+      await video.play();
+
+      const resizeCanvas = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      };
+
+      video.addEventListener('loadeddata', resizeCanvas);
+      window.addEventListener('resize', resizeCanvas);
+
+      loading.classList.add('hidden');
+      setTimeout(() => loading.remove(), 500);
+
+      running = true;
+      statusText.textContent = 'جاهز للمسح';
+
+      processLoop();
+
+    } catch (err) {
+      loadingText.innerHTML = `
+        <div class="error-message">
+          ❌ خطأ: ${err.message}<br>
+          <small>يرجى التحقق من الاتصال بالإنترنت أو استخدام متصفح حديث</small>
+        </div>
+      `;
+      console.error('خطأ في التهيئة:', err);
+    }
   }
-}
 
-// Reset button: clear all stored descriptors and tracker
-btnReset.addEventListener('click', ()=>{
-  labeledDescriptors.length = 0;
-  faceMatcher = null;
-  assignedLabels.length = 0;
-  nextLabel = 1;
-  tracker.reset();
-  updateSidebar();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  countText.innerText = 'العدد: 0';
-});
+  let lastLoop = 0;
+  function processLoop(now = performance.now()) {
+    if (!running) {
+      requestAnimationFrame(processLoop);
+      return;
+    }
 
-// pause/resume
-btnPause.addEventListener('click', ()=>{
-  running = !running;
-  btnPause.innerText = running ? 'إيقاف' : 'استئناف';
-});
+    if (now - lastLoop >= PROCESS_INTERVAL) {
+      processFrame();
+      lastLoop = now;
+    }
 
-// speed slider adjusts PROCESS_INTERVAL_MS
-speedSlider.addEventListener('input', (e)=>{
-  PROCESS_INTERVAL_MS = parseInt(e.target.value,10);
-});
+    requestAnimationFrame(processLoop);
+  }
 
-// tiny helper: rebuild faceMatcher when descriptors change
-function rebuildMatcherIfNeeded(){
-  if(labeledDescriptors.length === 0){ faceMatcher = null; return; }
-  const labeledFaceDescriptors = labeledDescriptors.map(entry => {
-    const arr = entry.descriptors.map(d => Float32Array.from(d));
-    return new faceapi.LabeledFaceDescriptors(String(entry.label), arr);
+  btnReset.addEventListener('click', () => {
+    if (confirm('هل تريد حذف جميع البيانات وإعادة البدء؟')) {
+      labeledDescriptors = [];
+      faceMatcher = null;
+      assignedLabels = [];
+      nextLabel = 1;
+      tracker.reset();
+      updateFacesGrid();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      mainCounter.textContent = '0';
+      statusText.textContent = 'تم إعادة التعيين - جاهز للمسح';
+
+      mainCounter.style.animation = 'none';
+      setTimeout(() => {
+        mainCounter.style.animation = '';
+      }, 10);
+    }
   });
-  faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, MAX_DESCRIPTOR_DISTANCE);
-}
 
-// when adding descriptor, also rebuild matcher
-function addDescriptorForLabel(label, descriptor){
-  // descriptor is Float32Array
-  // store as plain array for JSONable memory
-  let entry = labeledDescriptors.find(e => e.label === label);
-  if(!entry){ entry = { label: label, descriptors: [] }; labeledDescriptors.push(entry); }
-  // dedupe similar descriptors
-  for(const d of entry.descriptors){
-    let dist = 0; for(let i=0;i<d.length;i++){ const diff = d[i] - descriptor[i]; dist += diff*diff; } dist = Math.sqrt(dist);
-    if(dist < 0.02) return;
-  }
-  entry.descriptors.push(Array.from(descriptor));
-  if(entry.descriptors.length > MAX_TEMPLATES_PER_LABEL) entry.descriptors.shift();
-  rebuildMatcherIfNeeded();
-}
+  btnPause.addEventListener('click', () => {
+    running = !running;
+    btnPause.innerHTML = running ? '⏸️ إيقاف' : '▶️ تشغيل';
+    btnPause.className = running ? 'btn btn-secondary' : 'btn btn-primary';
+    statusText.textContent = running ? 'جاهز للمسح' : 'متوقف مؤقتاً';
+  });
 
-// start everything
-init();
+  speedSlider.addEventListener('input', (e) => {
+    PROCESS_INTERVAL = parseInt(e.target.value);
+    speedValue.textContent = e.target.value;
+  });
 
-// Rebuild matcher periodically (in case labels changed)
-setInterval(()=>{ rebuildMatcherIfNeeded(); }, 1000);
+  sensitivitySlider.addEventListener('input', (e) => {
+    SCORE_THRESHOLD = parseInt(e.target.value) / 100;
+    sensitivityValue.textContent = e.target.value;
+  });
 
+  setInterval(() => {
+    if (labeledDescriptors.length > 0 && !faceMatcher) {
+      rebuildFaceMatcher();
+    }
+  }, 2000);
+
+  init();
+});
 </script>
 </body>
 </html>
